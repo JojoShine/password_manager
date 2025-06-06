@@ -17,4 +17,12 @@
       <supportedOS Id="{35138b9a-5d96-4fbd-8e2d-a2440225f93a}"/>
     </application>
   </compatibility>
+  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v2">
+    <security>
+      <requestedPrivileges xmlns="urn:schemas-microsoft-com:asm.v3">
+        <!-- 以管理员权限运行（可选，根据需要开启） -->
+        <requestedExecutionLevel level="asInvoker" uiAccess="false" />
+      </requestedPrivileges>
+    </security>
+  </trustInfo>
 </assembly>
