@@ -37,13 +37,13 @@ jobs:
       - name: 打包为ZIP
         run: |
           cd windows-release
-          tar -czf ../密码管理器-Windows.zip *
+          tar -czf ../PasswordManager-Windows.zip *
           
       - name: 上传Windows构建产物
         uses: actions/upload-artifact@v4
         with:
           name: windows-release
-          path: 密码管理器-Windows.zip
+          path: PasswordManager-Windows.zip
 
   build-macos:
     name: 构建macOS版本
@@ -69,13 +69,13 @@ jobs:
         
       - name: 创建DMG安装包
         run: |
-          hdiutil create -volname "密码管理器" -srcfolder "build/macos/Build/Products/Release/password_manager.app" -ov -format UDZO "密码管理器-macOS.dmg"
+          hdiutil create -volname "PasswordManager" -srcfolder "build/macos/Build/Products/Release/password_manager.app" -ov -format UDZO "PasswordManager-macOS.dmg"
           
       - name: 上传macOS构建产物
         uses: actions/upload-artifact@v4
         with:
           name: macos-release
-          path: 密码管理器-macOS.dmg
+          path: PasswordManager-macOS.dmg
 
   create-release:
     name: 创建发布
@@ -102,8 +102,8 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            ./artifacts/密码管理器-Windows.zip
-            ./artifacts/密码管理器-macOS.dmg
+            ./artifacts/PasswordManager-Windows.zip
+            ./artifacts/PasswordManager-macOS.dmg
           body: |
             ## 📦 密码管理器 ${{ github.ref_name }}
             
@@ -115,8 +115,8 @@ jobs:
             - ✅ 分类管理
             
             ### 💾 下载说明
-            - **Windows用户**: 下载 `密码管理器-Windows.zip`，解压后运行 `password_manager.exe`
-            - **macOS用户**: 下载 `密码管理器-macOS.dmg`，双击安装
+            - **Windows用户**: 下载 `PasswordManager-Windows.zip`，解压后运行 `password_manager.exe`
+            - **macOS用户**: 下载 `PasswordManager-macOS.dmg`，双击安装
             
             ### 🔧 系统要求
             - Windows 10/11 (x64)

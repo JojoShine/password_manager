@@ -46,13 +46,13 @@ jobs:
       - name: 打包为ZIP
         run: |
           cd windows-release
-          tar -czf ../密码管理器-Windows-Manual.zip *
+          tar -czf ../PasswordManager-Windows-Manual.zip *
           
       - name: 上传Windows构建产物
         uses: actions/upload-artifact@v4
         with:
           name: windows-manual-build
-          path: 密码管理器-Windows-Manual.zip
+          path: PasswordManager-Windows-Manual.zip
 
   build-macos:
     name: 构建macOS版本
@@ -79,10 +79,10 @@ jobs:
         
       - name: 创建DMG安装包
         run: |
-          hdiutil create -volname "密码管理器" -srcfolder "build/macos/Build/Products/Release/password_manager.app" -ov -format UDZO "密码管理器-macOS-Manual.dmg"
+          hdiutil create -volname "PasswordManager" -srcfolder "build/macos/Build/Products/Release/password_manager.app" -ov -format UDZO "PasswordManager-macOS-Manual.dmg"
           
       - name: 上传macOS构建产物
         uses: actions/upload-artifact@v4
         with:
           name: macos-manual-build
-          path: 密码管理器-macOS-Manual.dmg 
+          path: PasswordManager-macOS-Manual.dmg 
