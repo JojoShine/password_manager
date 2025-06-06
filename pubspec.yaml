@@ -51,6 +51,9 @@ dependencies:
   
   # 桌面窗口管理
   window_manager: ^0.3.7
+  
+  # 应用信息获取
+  package_info_plus: ^4.2.0
 
 dev_dependencies:
   flutter_test:

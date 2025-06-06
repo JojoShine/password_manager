@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/category.dart';
@@ -207,6 +208,364 @@ class _HomePageState extends State<HomePage> {
         MaterialPageRoute(builder: (context) => const LoginPage()),
       );
     }
+  }
+
+  /// 显示版本信息弹窗
+  Future<void> _showVersionInfo() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.5), // 统一遮罩层透明度
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent, // 设置Dialog背景为透明
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 500), // 移除高度限制
+          decoration: BoxDecoration(
+            // 根据主题模式设置精确的背景色
+            color: isDark
+                ? const Color(0xFF1E1E1E) // 深色模式：深灰色背景
+                : Colors.white, // 浅色模式：纯白背景
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: isDark
+                    ? Colors.black.withOpacity(0.8) // 深色模式：更强的阴影
+                    : Colors.black.withOpacity(0.15), // 浅色模式：轻微阴影
+                blurRadius: isDark ? 24 : 16,
+                offset: const Offset(0, 8),
+                spreadRadius: isDark ? 2 : 0,
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 标题栏
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  // 标题栏使用更精确的渐变背景
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: isDark
+                        ? [
+                            const Color(0xFF2A2A2A), // 深色模式：深灰渐变
+                            const Color(0xFF1A1A1A),
+                          ]
+                        : [
+                            const Color(0xFFF8F9FA), // 浅色模式：浅灰渐变
+                            const Color(0xFFE9ECEF),
+                          ],
+                  ),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Theme.of(context).colorScheme.primary,
+                            Theme.of(context)
+                                .colorScheme
+                                .primary
+                                .withOpacity(0.8),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .primary
+                                .withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.security,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '关于应用',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: isDark
+                                  ? Colors.white
+                                  : const Color(0xFF1A1A1A),
+                            ),
+                          ),
+                          Text(
+                            '版本信息与功能介绍',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: isDark
+                                  ? Colors.white.withOpacity(0.7)
+                                  : const Color(0xFF666666),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: Icon(
+                        Icons.close,
+                        color: isDark
+                            ? Colors.white.withOpacity(0.8)
+                            : const Color(0xFF666666),
+                      ),
+                      splashRadius: 20,
+                      tooltip: '关闭',
+                    ),
+                  ],
+                ),
+              ),
+              // 内容区域 - 移除 Expanded 和 SingleChildScrollView
+              Container(
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(20),
+                    bottomRight: Radius.circular(20),
+                  ),
+                ),
+                padding: const EdgeInsets.all(24),
+                child: FutureBuilder<Map<String, String>>(
+                  future: _getVersionAppInfo(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(32.0),
+                          child: CircularProgressIndicator(),
+                        ),
+                      );
+                    }
+
+                    final appInfo = snapshot.data ?? {};
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildVersionInfoRow(
+                            '应用名称', appInfo['appName'] ?? '密码管理器'),
+                        const SizedBox(height: 16),
+                        _buildVersionInfoRow(
+                            '版本号', appInfo['version'] ?? '1.0.0'),
+                        const SizedBox(height: 16),
+                        _buildVersionInfoRow(
+                            '构建号', appInfo['buildNumber'] ?? '1'),
+                        const SizedBox(height: 16),
+                        _buildVersionInfoRow(
+                            '包名',
+                            appInfo['packageName'] ??
+                                'com.example.password_manager'),
+                        const SizedBox(height: 24),
+                        // 功能特性卡片
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? const Color(0xFF2A2A2A) // 深色模式：深灰背景
+                                : const Color(0xFFF8F9FA), // 浅色模式：浅灰背景
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isDark
+                                  ? const Color(0xFF404040) // 深色模式：深色边框
+                                  : const Color(0xFFE9ECEF), // 浅色模式：浅色边框
+                              width: 1,
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.star,
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '功能特性',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: isDark
+                                          ? Colors.white
+                                          : const Color(0xFF1A1A1A),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                '• 安全的密码存储与管理\n'
+                                '• 强密码生成器\n'
+                                '• 分类管理与搜索\n'
+                                '• 数据导入导出\n'
+                                '• 多主题切换\n'
+                                '• 自定义界面\n'
+                                '• 自动锁定保护',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: isDark
+                                      ? Colors.white.withOpacity(0.8)
+                                      : const Color(0xFF666666),
+                                  height: 1.6,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        // 安全提示卡片
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? Colors.green.withOpacity(0.1) // 深色模式：绿色半透明
+                                : Colors.green.withOpacity(0.05), // 浅色模式：绿色更淡
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isDark
+                                  ? Colors.green.withOpacity(0.3) // 深色模式：绿色边框
+                                  : Colors.green.withOpacity(0.2), // 浅色模式：淡绿色边框
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.security,
+                                color: isDark
+                                    ? Colors.green.shade300 // 深色模式：亮绿色图标
+                                    : Colors.green.shade600, // 浅色模式：深绿色图标
+                                size: 20,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  '您的数据安全是我们的首要任务，所有密码数据均采用本地加密存储。',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: isDark
+                                        ? Colors.green.shade100 // 深色模式：亮绿色文字
+                                        : Colors.green.shade700, // 浅色模式：深绿色文字
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 获取版本应用信息
+  Future<Map<String, String>> _getVersionAppInfo() async {
+    try {
+      PackageInfo packageInfo = await PackageInfo.fromPlatform();
+      return {
+        'appName': packageInfo.appName,
+        'version': packageInfo.version,
+        'buildNumber': packageInfo.buildNumber,
+        'packageName': packageInfo.packageName,
+      };
+    } catch (e) {
+      return {
+        'appName': '密码管理器',
+        'version': '1.0.0',
+        'buildNumber': '1',
+        'packageName': 'com.example.password_manager',
+      };
+    }
+  }
+
+  /// 构建版本信息行
+  Widget _buildVersionInfoRow(String label, String value) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 80,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontWeight: FontWeight.w500,
+              color: isDark
+                  ? Colors.white.withOpacity(0.7) // 深色模式：半透明白色
+                  : const Color(0xFF666666), // 浅色模式：中等灰色
+              fontSize: 14,
+            ),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? const Color(0xFF2A2A2A) // 深色模式：深灰背景
+                  : const Color(0xFFF8F9FA), // 浅色模式：浅灰背景
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isDark
+                    ? const Color(0xFF404040) // 深色模式：深色边框
+                    : const Color(0xFFE9ECEF), // 浅色模式：浅色边框
+                width: 1,
+              ),
+            ),
+            child: Text(
+              value,
+              style: TextStyle(
+                color: isDark
+                    ? Colors.white.withOpacity(0.9) // 深色模式：亮白色
+                    : const Color(0xFF1A1A1A), // 浅色模式：深黑色
+                fontFamily: 'monospace',
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                letterSpacing: 0.5, // 增加字符间距，提高可读性
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   /// 显示设置页面
@@ -950,6 +1309,45 @@ class _HomePageState extends State<HomePage> {
                 ),
                 const SizedBox(width: 12),
                 Text(SettingsService.instance.appTitle),
+                const SizedBox(width: 8),
+                // 版本信息按钮
+                GestureDetector(
+                  onTap: _showVersionInfo,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .secondaryContainer
+                          .withOpacity(0.7),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          size: 16,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSecondaryContainer,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'v1.0.0',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSecondaryContainer,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
             actions: [
@@ -996,36 +1394,12 @@ class _HomePageState extends State<HomePage> {
               ),
             ],
           ),
-          floatingActionButton: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // 密码生成器按钮
-              FloatingActionButton.extended(
-                onPressed: _showPasswordGeneratorDialog,
-                heroTag: "generator",
-                backgroundColor: Theme.of(context).colorScheme.secondary,
-                foregroundColor: Colors.white,
-                icon: const Icon(Icons.generating_tokens),
-                label: const Text('生成密码'),
-                tooltip: '生成密码',
-              ),
-              const SizedBox(height: 12),
-              // 添加密码按钮
-              FloatingActionButton.extended(
-                onPressed: _showAddPasswordDialog,
-                heroTag: "add",
-                icon: const Icon(Icons.add),
-                label: const Text('添加密码'),
-                tooltip: '添加新密码',
-              ),
-            ],
-          ),
         );
       },
     );
   }
 
-  /// 构建搜索框
+  /// 构建搜索框和操作按钮栏
   Widget _buildSearchBar() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1049,32 +1423,85 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
       ),
-      child: TextField(
-        controller: _searchController,
-        decoration: InputDecoration(
-          hintText: '搜索密码标题或网站...',
-          prefixIcon: const Icon(Icons.search),
-          suffixIcon: _searchText.isNotEmpty
-              ? IconButton(
-                  icon: const Icon(Icons.clear),
-                  onPressed: () {
-                    _searchController.clear();
-                  },
-                )
-              : null,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide.none,
+      child: Row(
+        children: [
+          // 搜索框
+          Expanded(
+            flex: 3,
+            child: SizedBox(
+              height: 48, // 统一设置高度
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: '搜索密码标题或网站...',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: _searchText.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () {
+                            _searchController.clear();
+                          },
+                        )
+                      : null,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
+                  filled: true,
+                  fillColor: ThemeService.instance.isDark
+                      ? Theme.of(context)
+                          .colorScheme
+                          .surfaceVariant
+                          .withOpacity(0.5)
+                      : Theme.of(context)
+                          .colorScheme
+                          .surfaceVariant
+                          .withOpacity(0.8),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
+                ),
+              ),
+            ),
           ),
-          filled: true,
-          fillColor: ThemeService.instance.isDark
-              ? Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5)
-              : Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.8),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 20,
-            vertical: 16,
+          const SizedBox(width: 16),
+          // 密码生成器按钮
+          SizedBox(
+            height: 48, // 统一设置高度
+            child: ElevatedButton.icon(
+              onPressed: _showPasswordGeneratorDialog,
+              icon: const Icon(Icons.generating_tokens, size: 18),
+              label: const Text('生成密码'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.secondary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
           ),
-        ),
+          const SizedBox(width: 12),
+          // 添加密码按钮
+          SizedBox(
+            height: 48, // 统一设置高度
+            child: ElevatedButton.icon(
+              onPressed: _showAddPasswordDialog,
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('添加密码'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -2016,5 +2443,282 @@ class _PasswordViewDialogState extends State<_PasswordViewDialog> {
   String _formatDateTime(DateTime dateTime) {
     return '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')} '
         '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+  }
+
+  /// 显示版本信息弹窗
+  Future<void> _showVersionInfo() async {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 标题栏
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.security,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '关于应用',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onPrimaryContainer,
+                            ),
+                          ),
+                          Text(
+                            '版本信息与功能介绍',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onPrimaryContainer
+                                  .withOpacity(0.7),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: Icon(
+                        Icons.close,
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // 内容区域
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: FutureBuilder<Map<String, String>>(
+                    future: _getAppInfo(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(32.0),
+                            child: CircularProgressIndicator(),
+                          ),
+                        );
+                      }
+
+                      final appInfo = snapshot.data ?? {};
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildVersionInfoRow(
+                              '应用名称', appInfo['appName'] ?? '密码管理器'),
+                          const SizedBox(height: 16),
+                          _buildVersionInfoRow(
+                              '版本号', appInfo['version'] ?? '1.0.0'),
+                          const SizedBox(height: 16),
+                          _buildVersionInfoRow(
+                              '构建号', appInfo['buildNumber'] ?? '1'),
+                          const SizedBox(height: 16),
+                          _buildVersionInfoRow(
+                              '包名',
+                              appInfo['packageName'] ??
+                                  'com.example.password_manager'),
+                          const SizedBox(height: 24),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .surfaceVariant
+                                  .withOpacity(0.5),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.star,
+                                      color:
+                                          Theme.of(context).colorScheme.primary,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      '功能特性',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurface,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  '• 安全的密码存储与管理\n'
+                                  '• 强密码生成器\n'
+                                  '• 分类管理与搜索\n'
+                                  '• 数据导入导出\n'
+                                  '• 多主题切换\n'
+                                  '• 自定义界面\n'
+                                  '• 自动锁定保护',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                    height: 1.6,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .tertiaryContainer
+                                  .withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .tertiary
+                                    .withOpacity(0.3),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.security,
+                                  color: Theme.of(context).colorScheme.tertiary,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    '您的数据安全是我们的首要任务，所有密码数据均采用本地加密存储。',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onTertiaryContainer,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 获取应用信息
+  Future<Map<String, String>> _getAppInfo() async {
+    try {
+      PackageInfo packageInfo = await PackageInfo.fromPlatform();
+      return {
+        'appName': packageInfo.appName,
+        'version': packageInfo.version,
+        'buildNumber': packageInfo.buildNumber,
+        'packageName': packageInfo.packageName,
+      };
+    } catch (e) {
+      return {
+        'appName': '密码管理器',
+        'version': '1.0.0',
+        'buildNumber': '1',
+        'packageName': 'com.example.password_manager',
+      };
+    }
+  }
+
+  /// 构建版本信息行
+  Widget _buildVersionInfoRow(String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 80,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontWeight: FontWeight.w500,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: 14,
+            ),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+              ),
+            ),
+            child: Text(
+              value,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
+                fontFamily: 'monospace',
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
