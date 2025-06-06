@@ -1,0 +1,88 @@
+name: 手动构建
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_windows:
+        description: '构建Windows版本'
+        required: true
+        default: true
+        type: boolean
+      build_macos:
+        description: '构建macOS版本'  
+        required: true
+        default: true
+        type: boolean
+
+jobs:
+  build-windows:
+    name: 构建Windows版本
+    runs-on: windows-latest
+    if: ${{ inputs.build_windows }}
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+      
+      - name: 设置Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.0'
+          channel: 'stable'
+          
+      - name: 启用Windows桌面支持
+        run: flutter config --enable-windows-desktop
+        
+      - name: 获取依赖
+        run: flutter pub get
+        
+      - name: 构建Windows应用
+        run: flutter build windows --release
+        
+      - name: 创建Windows安装包
+        run: |
+          mkdir windows-release
+          xcopy "build\windows\x64\runner\Release\*" "windows-release\" /E /I /Y
+          
+      - name: 打包为ZIP
+        run: |
+          cd windows-release
+          tar -czf ../密码管理器-Windows-Manual.zip *
+          
+      - name: 上传Windows构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-manual-build
+          path: 密码管理器-Windows-Manual.zip
+
+  build-macos:
+    name: 构建macOS版本
+    runs-on: macos-latest
+    if: ${{ inputs.build_macos }}
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+      
+      - name: 设置Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.0'
+          channel: 'stable'
+          
+      - name: 启用macOS桌面支持
+        run: flutter config --enable-macos-desktop
+        
+      - name: 获取依赖
+        run: flutter pub get
+        
+      - name: 构建macOS应用
+        run: flutter build macos --release
+        
+      - name: 创建DMG安装包
+        run: |
+          hdiutil create -volname "密码管理器" -srcfolder "build/macos/Build/Products/Release/password_manager.app" -ov -format UDZO "密码管理器-macOS-Manual.dmg"
+          
+      - name: 上传macOS构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-manual-build
+          path: 密码管理器-macOS-Manual.dmg 

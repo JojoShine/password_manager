@@ -1,0 +1,174 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+## 2-特定语言开发要求
+
+### Node.js 开发规范
+
+#### 项目结构
+```
+project-root/
+  ├── src/                 # 源代码
+  │   ├── api/             # API 路由定义
+  │   ├── config/          # 配置文件
+  │   ├── controllers/     # 控制器
+  │   ├── middlewares/     # 中间件
+  │   ├── models/          # 数据模型
+  │   ├── services/        # 业务逻辑
+  │   ├── utils/           # 工具函数
+  │   └── app.js           # 应用入口
+  ├── tests/               # 测试文件
+  ├── package.json         # 依赖管理
+  ├── .eslintrc.js         # ESLint 配置
+  ├── .prettierrc          # Prettier 配置
+  └── README.md            # 项目文档
+```
+
+#### 命名规范
+- **文件命名**：使用 kebab-case（如 `user-service.js`）
+- **类命名**：使用 PascalCase（如 `UserService`）
+- **函数/变量**：使用 camelCase（如 `getUserById`）
+- **常量**：使用 UPPER_SNAKE_CASE（如 `MAX_RETRY_COUNT`）
+
+#### 代码风格
+- 使用 ES6+ 语法特性
+- 优先使用 `const`，其次 `let`，避免 `var`
+- 使用箭头函数保持 `this` 上下文
+- 使用 async/await 处理异步，避免回调地狱
+- 使用解构赋值简化代码
+
+#### 异步处理
+- 使用 Promise 或 async/await，避免嵌套回调
+- 正确处理 Promise 链中的错误
+- 避免混用 callback 和 Promise
+
+#### 错误处理
+- 使用自定义错误类扩展 Error
+- 区分操作错误和程序错误
+- 使用中间件统一处理 API 错误
+
+#### 依赖管理
+- 明确指定依赖版本
+- 区分 dependencies 和 devDependencies
+- 定期更新依赖检查安全漏洞
+
+#### 测试
+- 使用 Jest 或 Mocha 进行单元测试
+- 使用 Supertest 进行 API 测试
+- 测试文件与源文件结构对应
+
+### Java 开发规范
+
+#### 项目结构
+```
+project-root/
+  ├── src/
+  │   ├── main/
+  │   │   ├── java/
+  │   │   │   └── com/company/project/
+  │   │   │       ├── config/
+  │   │   │       ├── controller/
+  │   │   │       ├── dto/
+  │   │   │       ├── entity/
+  │   │   │       ├── exception/
+  │   │   │       ├── repository/
+  │   │   │       ├── service/
+  │   │   │       └── util/
+  │   │   └── resources/
+  │   └── test/
+  ├── pom.xml
+  └── README.md
+```
+
+#### 命名规范
+- **包名**：全小写，使用域名反转（如 `com.company.project`）
+- **类名**：PascalCase（如 `UserService`）
+- **方法/变量**：camelCase（如 `getUserById`）
+- **常量**：UPPER_SNAKE_CASE（如 `MAX_RETRY_COUNT`）
+
+#### 代码风格
+- 遵循 Oracle 的 Java 代码规范
+- 类、方法添加 Javadoc 文档
+- 使用 lombok 减少样板代码
+- 优先使用接口而非实现类型
+- 使用 Java 8+ 的流式 API 和 Optional
+
+#### 异常处理
+- 区分检查异常和非检查异常
+- 创建自定义异常层次结构
+- 在服务层处理业务异常
+- 使用全局异常处理器统一处理 API 异常
+
+#### 依赖注入
+- 使用构造函数注入而非字段注入
+- 避免循环依赖
+- 组件职责单一
+
+#### 测试
+- 使用 JUnit 5 进行单元测试
+- 使用 Mockito 模拟依赖
+- 使用 Spring Test 进行集成测试
+- 测试覆盖率目标 > 80%
+
+#### 持久层
+- 使用 JPA 或 MyBatis 进行 ORM
+- 使用事务管理保证数据一致性
+- 避免 N+1 查询问题
+
+### Python 开发规范
+
+#### 项目结构
+```
+project-root/
+  ├── project_name/        # 主包
+  │   ├── __init__.py
+  │   ├── api/             # API 定义
+  │   ├── config/          # 配置
+  │   ├── core/            # 核心业务逻辑
+  │   ├── db/              # 数据库模型和操作
+  │   ├── schemas/         # 数据验证模式
+  │   └── utils/           # 工具函数
+  ├── tests/               # 测试
+  ├── requirements.txt     # 依赖
+  ├── setup.py             # 包安装配置
+  └── README.md            # 文档
+```
+
+#### 命名规范
+- **模块/包名**：小写，短，使用下划线（如 `data_processor`）
+- **类名**：PascalCase（如 `UserService`）
+- **函数/变量/方法**：snake_case（如 `get_user_by_id`）
+- **常量**：UPPER_SNAKE_CASE（如 `MAX_RETRY_COUNT`）
+
+#### 代码风格
+- 遵循 PEP 8 风格指南
+- 使用类型注解增强代码可读性
+- 文档字符串使用 Google 或 NumPy 风格
+- 行长度限制在 88-100 字符内
+- 使用 f-strings 进行字符串格式化
+
+#### 异常处理
+- 创建自定义异常类继承自 Exception
+- 只捕获预期的具体异常
+- 使用 `with` 语句管理资源
+- 异常信息应当明确且有用
+
+#### 依赖管理
+- 使用虚拟环境隔离依赖
+- 使用 `requirements.txt` 或 `pyproject.toml` 管理依赖
+- 指定依赖版本范围
+- 考虑使用 pip-tools 或 Poetry
+
+#### 测试
+- 使用 pytest 进行单元测试
+- 使用 fixtures 减少测试代码重复
+- 使用 pytest-cov 检查测试覆盖率
+- 测试文件命名为 `test_*.py`
+
+#### 异步编程
+- 使用 async/await 进行异步编程
+- 避免混用同步和异步代码
+- 正确处理异步上下文中的异常
+- 使用 asyncio 的高级 API

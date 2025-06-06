@@ -1,0 +1,476 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+## 3-接口设计与数据库设计规范
+
+### 接口设计规范
+
+#### RESTful API 设计原则
+
+1. **资源命名**
+   - 使用名词复数形式表示资源集合（如 `/users`、`/products`）
+   - 使用 ID 标识具体资源（如 `/users/123`）
+   - 使用小写字母，单词间用连字符（-）分隔
+   - 避免在 URL 中包含动词
+
+2. **HTTP 方法使用**
+   - GET：获取资源，不应有副作用
+   - POST：创建资源
+   - PUT：完全替换资源
+   - PATCH：部分更新资源
+   - DELETE：删除资源
+
+3. **状态码使用**
+   - 200 OK：请求成功
+   - 201 Created：资源创建成功
+   - 204 No Content：成功但无返回内容
+   - 400 Bad Request：请求参数错误
+   - 401 Unauthorized：未认证
+   - 403 Forbidden：权限不足
+   - 404 Not Found：资源不存在
+   - 409 Conflict：资源冲突
+   - 429 Too Many Requests：请求过于频繁
+   - 500 Internal Server Error：服务器错误
+
+4. **版本控制**
+   - 在 URL 中包含版本号：`/api/v1/users`
+   - 或通过请求头：`Accept: application/vnd.company.v1+json`
+
+#### 请求与响应格式
+
+1. **请求格式**
+
+```json
+// POST /api/v1/users
+{
+  "username": "johndoe",
+  "email": "john.doe@example.com",
+  "firstName": "John",
+  "lastName": "Doe",
+  "role": "user"
+}
+```
+
+2. **成功响应格式**
+
+```json
+// 200 OK
+{
+  "data": {
+    "id": "12345",
+    "username": "johndoe",
+    "email": "john.doe@example.com",
+    "firstName": "John",
+    "lastName": "Doe",
+    "role": "user",
+    "createdAt": "2025-04-07T09:53:00Z",
+    "updatedAt": "2025-04-07T09:53:00Z"
+  },
+  "meta": {
+    "requestId": "req-123456"
+  }
+}
+
+// 集合响应
+// GET /api/v1/users
+{
+  "data": [
+    {
+      "id": "12345",
+      "username": "johndoe",
+      "email": "john.doe@example.com",
+      "firstName": "John",
+      "lastName": "Doe"
+    },
+    {
+      "id": "12346",
+      "username": "janedoe",
+      "email": "jane.doe@example.com",
+      "firstName": "Jane",
+      "lastName": "Doe"
+    }
+  ],
+  "meta": {
+    "total": 42,
+    "page": 1,
+    "perPage": 10,
+    "requestId": "req-123457"
+  },
+  "links": {
+    "self": "/api/v1/users?page=1&perPage=10",
+    "next": "/api/v1/users?page=2&perPage=10",
+    "prev": null
+  }
+}
+```
+
+3. **错误响应格式**
+
+```json
+// 400 Bad Request
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "The request contains invalid parameters",
+    "details": [
+      {
+        "field": "email",
+        "message": "Must be a valid email address"
+      },
+      {
+        "field": "username",
+        "message": "Must be between 3 and 20 characters"
+      }
+    ]
+  },
+  "meta": {
+    "requestId": "req-123458"
+  }
+}
+```
+
+#### 认证与授权
+
+1. **认证方式**
+   - 使用 Bearer Token：`Authorization: Bearer <token>`
+   - 使用 OAuth 2.0 或 JWT
+   - 避免使用 Basic Auth 在生产环境
+
+2. **授权示例**
+
+```json
+// 权限验证错误响应
+// 403 Forbidden
+{
+  "error": {
+    "code": "INSUFFICIENT_PERMISSIONS",
+    "message": "You don't have permission to access this resource",
+    "requiredPermissions": ["users:write"]
+  },
+  "meta": {
+    "requestId": "req-123459"
+  }
+}
+```
+
+#### API 文档规范
+
+1. **使用 OpenAPI (Swagger) 规范**
+
+```yaml
+openapi: 3.0.0
+info:
+  title: User Management API
+  version: 1.0.0
+  description: API for managing users in the system
+paths:
+  /users:
+    get:
+      summary: List all users
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: perPage
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: A list of users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserList'
+    post:
+      summary: Create a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreate'
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+components:
+  schemas:
+    UserCreate:
+      type: object
+      required:
+        - username
+        - email
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 20
+        email:
+          type: string
+          format: email
+```
+
+#### 接口安全性要求
+
+1. **输入验证**
+   - 所有输入必须经过验证
+   - 使用白名单而非黑名单验证
+   - 验证数据类型、长度、格式和范围
+
+2. **限流措施**
+   - 实现 API 限流保护
+   - 在响应头中包含限流信息：
+   ```
+   X-RateLimit-Limit: 100
+   X-RateLimit-Remaining: 98
+   X-RateLimit-Reset: 1680861600
+   ```
+
+3. **CORS 配置**
+   - 明确指定允许的来源、方法和头部
+   - 避免使用 `Access-Control-Allow-Origin: *`
+
+### 数据库设计规范
+
+#### 通用命名规范
+
+1. **表命名**
+   - 使用复数名词（如 `users`、`products`）
+   - 使用小写字母和下划线分隔（如 `snake_case`）
+   - 关联表使用两个表名中间加map（如 `users_map_roles`）
+
+2. **列命名**
+   - 使用小写字母和下划线分隔（如 `snake_case`）
+   - ID 列命名为 `id` 或 `<table_name>_id`
+   - 布尔字段使用 `is_` 或 `has_` 前缀（如 `is_active`）
+   - 时间戳字段使用 `created_at`、`updated_at`、`deleted_at`
+
+#### 关系型数据库设计
+
+1. **表结构示例**
+
+```sql
+-- 用户表
+CREATE TABLE users (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    first_name VARCHAR(50),
+    last_name VARCHAR(50),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL,
+    
+    INDEX idx_email (email),
+    INDEX idx_username (username)
+);
+
+-- 角色表
+CREATE TABLE roles (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(50) NOT NULL UNIQUE,
+    description VARCHAR(255),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 用户角色关联表
+CREATE TABLE users_roles (
+    user_id BIGINT NOT NULL,
+    role_id INT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    
+    PRIMARY KEY (user_id, role_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE
+);
+
+-- 产品表
+CREATE TABLE products (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    price DECIMAL(10, 2) NOT NULL,
+    stock_quantity INT NOT NULL DEFAULT 0,
+    category_id INT,
+    is_available BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    INDEX idx_category (category_id),
+    INDEX idx_name (name),
+    FOREIGN KEY (category_id) REFERENCES categories(id)
+);
+```
+
+2. **索引规范**
+   - 为所有外键创建索引
+   - 为经常用于查询的字段创建索引
+   - 为唯一约束字段创建唯一索引
+   - 考虑复合索引以优化多字段查询
+   - 避免过度索引（影响写入性能）
+
+3. **关系设计**
+   - 一对多：在"多"的一方添加外键
+   - 多对多：创建关联表
+   - 一对一：考虑是否应合并为单个表
+
+4. **数据类型选择**
+   - 使用最小满足需求的数据类型
+   - 对于 ID，优先使用 BIGINT 或 UUID
+   - 对于文本，根据长度选择 VARCHAR 或 TEXT
+   - 对于日期时间，使用 TIMESTAMP 或 DATETIME
+   - 对于货币，使用 DECIMAL 而非 FLOAT
+
+5. **约束使用**
+   - 使用 NOT NULL 约束避免空值
+   - 使用外键保持引用完整性
+   - 使用唯一约束防止重复
+   - 使用检查约束验证数据（如果数据库支持）
+
+#### NoSQL 数据库设计（MongoDB）
+
+1. **文档结构示例**
+
+```json
+// 用户集合
+{
+  "_id": ObjectId("507f1f77bcf86cd799439011"),
+  "username": "johndoe",
+  "email": "john.doe@example.com",
+  "passwordHash": "$2a$10$XOPbrlUPQdwdJUpSrIF6X.LbE14qsMmKGhM1A8W9iqaG3vv1BD7WC",
+  "profile": {
+    "firstName": "John",
+    "lastName": "Doe",
+    "avatar": "https://example.com/avatars/johndoe.jpg"
+  },
+  "roles": ["user", "editor"],
+  "preferences": {
+    "theme": "dark",
+    "notifications": {
+      "email": true,
+      "push": false
+    }
+  },
+  "isActive": true,
+  "createdAt": ISODate("2025-04-07T09:53:00Z"),
+  "updatedAt": ISODate("2025-04-07T09:53:00Z")
+}
+
+// 产品集合
+{
+  "_id": ObjectId("507f191e810c19729de860ea"),
+  "name": "Smartphone X",
+  "description": "Latest model with advanced features",
+  "price": {
+    "amount": 999.99,
+    "currency": "USD"
+  },
+  "category": ObjectId("507f191e810c19729de860eb"),
+  "tags": ["electronics", "smartphone", "premium"],
+  "specs": {
+    "display": "6.7 inch OLED",
+    "processor": "Octa-core",
+    "camera": "48MP",
+    "battery": "4500mAh"
+  },
+  "inventory": {
+    "stockQuantity": 120,
+    "warehouse": "CENTRAL",
+    "isAvailable": true
+  },
+  "reviews": [
+    {
+      "userId": ObjectId("507f1f77bcf86cd799439011"),
+      "rating": 5,
+      "comment": "Excellent product!",
+      "createdAt": ISODate("2025-04-05T14:30:00Z")
+    }
+  ],
+  "createdAt": ISODate("2025-04-01T10:00:00Z"),
+  "updatedAt": ISODate("2025-04-07T09:53:00Z")
+}
+```
+
+2. **集合设计原则**
+   - 根据访问模式设计文档结构
+   - 内嵌相关数据以减少查询次数
+   - 对于大型或独立变化的数据，使用引用
+   - 避免过深的嵌套结构（不超过3层）
+
+3. **索引策略**
+   - 为经常查询的字段创建索引
+   - 考虑复合索引优化多字段查询
+   - 对于地理数据使用地理空间索引
+   - 对于全文搜索使用文本索引
+
+4. **数据一致性**
+   - 使用事务保证原子操作（MongoDB 4.0+）
+   - 对于分布式操作，实现补偿逻辑
+   - 考虑最终一致性模型
+
+#### 数据库迁移与版本控制
+
+1. **迁移脚本示例（使用 Flyway 或类似工具）**
+
+```sql
+-- V1__Create_users_table.sql
+CREATE TABLE users (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- V2__Add_profile_fields.sql
+ALTER TABLE users
+ADD COLUMN first_name VARCHAR(50) AFTER email,
+ADD COLUMN last_name VARCHAR(50) AFTER first_name;
+```
+
+2. **迁移最佳实践**
+   - 所有数据库更改通过迁移脚本进行
+   - 迁移脚本应是幂等的或有版本控制
+   - 在应用启动时自动执行待执行的迁移
+   - 迁移脚本应包含回滚逻辑
+
+#### 数据安全性
+
+1. **敏感数据处理**
+   - 密码必须加密存储（使用 bcrypt、Argon2 等）
+   - 个人身份信息考虑加密或脱敏
+   - 支付信息遵循 PCI DSS 标准
+
+2. **数据访问控制**
+   - 使用最小权限原则创建数据库用户
+   - 使用视图和存储过程限制直接表访问
+   - 实现行级安全性（如果数据库支持）
+
+#### 性能优化
+
+1. **查询优化**
+   - 使用 EXPLAIN 分析查询计划
+   - 避免 SELECT * 查询，只选择需要的列
+   - 使用分页限制结果集大小
+   - 优化 JOIN 操作和子查询
+
+2. **数据分区与分表**
+   - 考虑大表水平分表（sharding）
+   - 考虑按时间或地区垂直分区
+
+3. **缓存策略**
+   - 使用 Redis 或 Memcached 缓存频繁访问的数据
+   - 实现缓存失效策略

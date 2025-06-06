@@ -1,0 +1,128 @@
+name: 构建桌面应用
+
+on:
+  push:
+    tags:
+      - 'v*'  # 当推送标签时触发（如 v1.0.0）
+  workflow_dispatch:  # 手动触发
+
+jobs:
+  build-windows:
+    name: 构建Windows版本
+    runs-on: windows-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+      
+      - name: 设置Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.0'
+          channel: 'stable'
+          
+      - name: 启用Windows桌面支持
+        run: flutter config --enable-windows-desktop
+        
+      - name: 获取依赖
+        run: flutter pub get
+        
+      - name: 构建Windows应用
+        run: flutter build windows --release
+        
+      - name: 创建Windows安装包
+        run: |
+          mkdir windows-release
+          xcopy "build\windows\x64\runner\Release\*" "windows-release\" /E /I /Y
+          
+      - name: 打包为ZIP
+        run: |
+          cd windows-release
+          tar -czf ../密码管理器-Windows.zip *
+          
+      - name: 上传Windows构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
+          path: 密码管理器-Windows.zip
+
+  build-macos:
+    name: 构建macOS版本
+    runs-on: macos-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+      
+      - name: 设置Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.0'
+          channel: 'stable'
+          
+      - name: 启用macOS桌面支持
+        run: flutter config --enable-macos-desktop
+        
+      - name: 获取依赖
+        run: flutter pub get
+        
+      - name: 构建macOS应用
+        run: flutter build macos --release
+        
+      - name: 创建DMG安装包
+        run: |
+          hdiutil create -volname "密码管理器" -srcfolder "build/macos/Build/Products/Release/password_manager.app" -ov -format UDZO "密码管理器-macOS.dmg"
+          
+      - name: 上传macOS构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-release
+          path: 密码管理器-macOS.dmg
+
+  create-release:
+    name: 创建发布
+    needs: [build-windows, build-macos]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        
+      - name: 下载Windows构建产物
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-release
+          path: ./artifacts
+          
+      - name: 下载macOS构建产物
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-release
+          path: ./artifacts
+          
+      - name: 创建Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            ./artifacts/密码管理器-Windows.zip
+            ./artifacts/密码管理器-macOS.dmg
+          body: |
+            ## 📦 密码管理器 ${{ github.ref_name }}
+            
+            ### 🚀 功能特性
+            - ✅ 密码管理和生成
+            - ✅ 数据加密导入导出
+            - ✅ 深色模式支持
+            - ✅ 自定义字段支持
+            - ✅ 分类管理
+            
+            ### 💾 下载说明
+            - **Windows用户**: 下载 `密码管理器-Windows.zip`，解压后运行 `password_manager.exe`
+            - **macOS用户**: 下载 `密码管理器-macOS.dmg`，双击安装
+            
+            ### 🔧 系统要求
+            - Windows 10/11 (x64)
+            - macOS 10.14+ (Intel/Apple Silicon)
+            
+            ---
+            ⭐ 如果觉得好用，请给项目点个星！
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
