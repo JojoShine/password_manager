@@ -67,9 +67,24 @@ jobs:
       - name: 构建macOS应用
         run: flutter build macos --release
         
+      - name: 检查构建产物
+        run: |
+          echo "列出 build 目录内容："
+          find build -name "*.app" -type d || echo "未找到 .app 文件"
+          ls -la build/macos/Build/Products/Release/ || echo "Release 目录不存在"
+        
       - name: 创建DMG安装包
         run: |
-          hdiutil create -volname "PasswordManager" -srcfolder "build/macos/Build/Products/Release/password_manager.app" -ov -format UDZO "PasswordManager-macOS.dmg"
+          # 确保构建产物存在
+          if [ -d "build/macos/Build/Products/Release/password_manager.app" ]; then
+            echo "找到 app 文件，创建 DMG..."
+            hdiutil create -volname "PasswordManager" -srcfolder "build/macos/Build/Products/Release/password_manager.app" -ov -format UDZO "PasswordManager-macOS.dmg"
+          else
+            echo "错误: 未找到 password_manager.app"
+            echo "尝试查找所有 .app 文件:"
+            find build -name "*.app" -type d
+            exit 1
+          fi
           
       - name: 上传macOS构建产物
         uses: actions/upload-artifact@v4
