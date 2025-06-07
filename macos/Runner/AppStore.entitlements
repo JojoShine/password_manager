@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- App Store沙盒要求 -->
+	<key>com.apple.security.app-sandbox</key>
+	<true/>
+	
+	<!-- 文件访问权限 - 用户选择的文件读写 -->
+	<key>com.apple.security.files.user-selected.read-write</key>
+	<true/>
+	
+	<!-- 下载文件夹访问权限 - 用于导出功能 -->
+	<key>com.apple.security.files.downloads.read-write</key>
+	<true/>
+	
+	<!-- 网络访问（如果需要） - 当前密码管理器为离线应用，可以移除 -->
+	<!-- 
+	<key>com.apple.security.network.client</key>
+	<true/>
+	-->
+	
+	<!-- 如果使用了加密功能，可能需要这个 -->
+	<key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+	<false/>
+	
+	<!-- 禁止JIT编译（App Store要求） -->
+	<key>com.apple.security.cs.allow-jit</key>
+	<false/>
+	
+	<!-- 禁用调试功能（发布版本） -->
+	<key>com.apple.security.cs.allow-dyld-environment-variables</key>
+	<false/>
+	
+	<!-- 禁用调试（发布版本） -->
+	<key>com.apple.security.cs.disable-library-validation</key>
+	<false/>
+</dict>
+</plist> 

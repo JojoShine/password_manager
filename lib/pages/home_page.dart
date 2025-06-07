@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -9,14 +10,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/category.dart';
 import '../models/password_entry.dart';
 import '../services/auth_service.dart';
+import '../services/event_bus.dart';
 import '../services/import_export_service.dart';
+import '../services/local_server_service.dart';
 import '../services/settings_service.dart';
 import '../services/theme_service.dart';
 import '../widgets/decrypt_password_dialog.dart';
 import '../widgets/export_options_dialog.dart';
+import '../widgets/footer.dart';
 import '../widgets/password_add_dialog.dart';
 import '../widgets/password_generator_dialog.dart';
 import '../widgets/theme_toggle_button.dart';
+import 'browser_extension_page.dart';
 import 'login_page.dart';
 import 'settings_page.dart';
 
@@ -35,6 +40,9 @@ class _HomePageState extends State<HomePage> {
   String _selectedCategory = '全部'; // 当前选中的分类
   String _searchText = '';
   bool _isLoading = false;
+
+  // 事件总线订阅
+  late StreamSubscription<AppEvent> _eventSubscription;
 
   // 获取所有分类
   List<String> get _categories =>
@@ -69,6 +77,23 @@ class _HomePageState extends State<HomePage> {
         _searchText = _searchController.text;
       });
     });
+
+    // 监听密码数据变更事件
+    _eventSubscription = EventBus.instance.events.listen((event) {
+      if (event is PasswordDataChangedEvent) {
+        debugPrint('收到密码数据变更事件，重新加载密码列表');
+        _loadPasswords();
+      }
+    });
+
+    // 设置密码数据变更回调
+    PasswordService.onPasswordDataChanged = () {
+      debugPrint('收到密码数据变更回调，重新加载密码列表');
+      if (mounted) {
+        _loadPasswords();
+      }
+    };
+
     _loadPasswords();
   }
 
@@ -197,6 +222,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     _searchController.dispose();
+    _eventSubscription.cancel(); // 取消事件监听
     super.dispose();
   }
 
@@ -573,6 +599,15 @@ class _HomePageState extends State<HomePage> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => const SettingsPage(),
+      ),
+    );
+  }
+
+  /// 显示浏览器扩展页面
+  void _showBrowserExtension() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const BrowserExtensionPage(),
       ),
     );
   }
@@ -1357,6 +1392,11 @@ class _HomePageState extends State<HomePage> {
                 child: ThemeToggleButton(),
               ),
               IconButton(
+                icon: const Icon(Icons.extension),
+                onPressed: _showBrowserExtension,
+                tooltip: '浏览器扩展',
+              ),
+              IconButton(
                 icon: const Icon(Icons.import_export),
                 onPressed: _showImportExportMenu,
                 tooltip: '导入导出',
@@ -1392,6 +1432,8 @@ class _HomePageState extends State<HomePage> {
                   ],
                 ),
               ),
+              // 底部footer
+              const Footer(),
             ],
           ),
         );
