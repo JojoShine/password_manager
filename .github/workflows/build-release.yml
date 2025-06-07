@@ -76,11 +76,11 @@ jobs:
       - name: 创建DMG安装包
         run: |
           # 确保构建产物存在
-          if [ -d "build/macos/Build/Products/Release/password_manager.app" ]; then
+          if [ -d "build/macos/Build/Products/Release/PasswordManager.app" ]; then
             echo "找到 app 文件，创建 DMG..."
-            hdiutil create -volname "PasswordManager" -srcfolder "build/macos/Build/Products/Release/password_manager.app" -ov -format UDZO "PasswordManager-macOS.dmg"
+            hdiutil create -volname "PasswordManager" -srcfolder "build/macos/Build/Products/Release/PasswordManager.app" -ov -format UDZO "PasswordManager-macOS.dmg"
           else
-            echo "错误: 未找到 password_manager.app"
+            echo "错误: 未找到 PasswordManager.app"
             echo "尝试查找所有 .app 文件:"
             find build -name "*.app" -type d
             exit 1
