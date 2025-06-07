@@ -24,7 +24,7 @@ class WebStorageService {
       _prefs = await SharedPreferences.getInstance();
       await _loadPasswordEntries();
     } catch (e) {
-      print('SharedPreferences初始化失败，使用内存存储: $e');
+    // print('SharedPreferences初始化失败，使用内存存储: $e');
     }
 
     _initialized = true;
@@ -38,7 +38,7 @@ class WebStorageService {
       _memoryEntries =
           jsonList.map((json) => PasswordEntry.fromMap(json)).toList();
     } catch (e) {
-      print('加载密码条目失败: $e');
+    // print('加载密码条目失败: $e');
       _memoryEntries = [];
     }
   }
@@ -50,7 +50,7 @@ class WebStorageService {
           json.encode(_memoryEntries.map((e) => e.toMap()).toList());
       await _prefs?.setString(_passwordEntriesKey, jsonString);
     } catch (e) {
-      print('保存密码条目失败: $e');
+    // print('保存密码条目失败: $e');
     }
   }
 

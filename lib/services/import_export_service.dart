@@ -22,7 +22,7 @@ class ImportExportService {
     String? masterPassword,
   }) async {
     try {
-      print('开始导出密码数据，加密: $encrypt，密码数量: ${passwords.length}');
+    // print('开始导出密码数据，加密: $encrypt，密码数量: ${passwords.length}');
 
       // 构建导出数据
       final Map<String, dynamic> exportData = {
@@ -38,7 +38,7 @@ class ImportExportService {
 
       if (encrypt) {
         if (masterPassword == null || masterPassword.isEmpty) {
-          print('导出失败：缺少主密码');
+    // print('导出失败：缺少主密码');
           throw Exception('主密码不能为空');
         }
 
@@ -67,16 +67,16 @@ class ImportExportService {
         fileName = 'passwords_${DateTime.now().millisecondsSinceEpoch}.json';
       }
 
-      print('准备保存文件: $fileName');
+    // print('准备保存文件: $fileName');
 
       if (kIsWeb) {
         // Web平台处理
-        print('Web平台导出');
+    // print('Web平台导出');
         _downloadFileOnWeb(jsonString, fileName, 'application/json');
         return fileName; // 返回文件名作为成功标识
       } else {
         // 桌面端/移动端处理 - 让用户选择保存位置
-        print('桌面端导出，显示文件保存对话框');
+    // print('桌面端导出，显示文件保存对话框');
 
         String? outputFile = await FilePicker.platform.saveFile(
           dialogTitle: encrypt ? '选择加密密码导出位置' : '选择密码导出位置',
@@ -85,23 +85,23 @@ class ImportExportService {
           allowedExtensions: ['json'],
         );
 
-        print('文件选择结果: $outputFile');
+    // print('文件选择结果: $outputFile');
 
         if (outputFile != null) {
           // 写入文件
-          print('写入文件: $outputFile');
+    // print('写入文件: $outputFile');
           final File file = File(outputFile);
           await file.writeAsString(jsonString);
-          print('文件写入成功');
+    // print('文件写入成功');
           return outputFile;
         } else {
           // 用户取消了保存
-          print('用户取消了文件保存');
+    // print('用户取消了文件保存');
           return null;
         }
       }
     } catch (e) {
-      print('导出失败: $e');
+    // print('导出失败: $e');
       return null;
     }
   }
@@ -109,20 +109,20 @@ class ImportExportService {
   /// 从JSON文件导入密码数据（支持加密检测和解密）
   Future<ImportResult> importPasswords([String? decryptPassword]) async {
     try {
-      print('开始导入密码数据');
+    // print('开始导入密码数据');
 
       // 选择文件
-      print('显示文件选择对话框');
+    // print('显示文件选择对话框');
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['json'],
         allowMultiple: false,
       );
 
-      print('文件选择结果: ${result?.files.length ?? 0} 个文件');
+    // print('文件选择结果: ${result?.files.length ?? 0} 个文件');
 
       if (result == null) {
-        print('用户取消了文件选择');
+    // print('用户取消了文件选择');
         return ImportResult.cancelled();
       }
 
@@ -130,61 +130,61 @@ class ImportExportService {
 
       if (kIsWeb) {
         // Web平台处理
-        print('Web平台导入');
+    // print('Web平台导入');
         if (result.files.single.bytes == null) {
-          print('无法读取文件内容（bytes为null）');
+    // print('无法读取文件内容（bytes为null）');
           return ImportResult.error('无法读取文件内容');
         }
         final bytes = result.files.single.bytes!;
         jsonString = String.fromCharCodes(bytes);
-        print('文件内容长度: ${jsonString.length}');
+    // print('文件内容长度: ${jsonString.length}');
       } else {
         // 移动端/桌面端处理
-        print('桌面端导入');
+    // print('桌面端导入');
         if (result.files.single.path == null) {
-          print('文件路径为null');
+    // print('文件路径为null');
           return ImportResult.cancelled();
         }
         final File file = File(result.files.single.path!);
-        print('读取文件: ${file.path}');
+    // print('读取文件: ${file.path}');
         jsonString = await file.readAsString();
-        print('文件内容长度: ${jsonString.length}');
+    // print('文件内容长度: ${jsonString.length}');
       }
 
       // 解析JSON
-      print('解析JSON数据');
+    // print('解析JSON数据');
       final Map<String, dynamic> data = jsonDecode(jsonString);
-      print('JSON解析成功，encrypted: ${data['encrypted']}');
+    // print('JSON解析成功，encrypted: ${data['encrypted']}');
 
       // 检查是否是加密文件
       if (data['encrypted'] == true && data.containsKey('data')) {
         // 这是加密文件，需要解密
-        print('检测到加密文件');
+    // print('检测到加密文件');
         if (decryptPassword == null) {
-          print('需要解密密码');
+    // print('需要解密密码');
           return ImportResult.needsDecryption('此文件已加密，需要输入主密码进行解密',
               fileContent: jsonString);
         }
 
         try {
-          print('尝试解密数据');
+    // print('尝试解密数据');
           final decryptedData =
               _decryptData(data['data'] as String, decryptPassword);
           final decryptedJson =
               jsonDecode(decryptedData) as Map<String, dynamic>;
-          print('解密成功');
+    // print('解密成功');
           return _parsePasswordData(decryptedJson);
         } catch (e) {
-          print('解密失败: $e');
+    // print('解密失败: $e');
           return ImportResult.error('解密失败：密码可能不正确或文件已损坏');
         }
       } else {
         // 明文文件，直接解析
-        print('处理明文文件');
+    // print('处理明文文件');
         return _parsePasswordData(data);
       }
     } catch (e) {
-      print('导入失败: $e');
+    // print('导入失败: $e');
       return ImportResult.error('导入失败: $e');
     }
   }
@@ -212,7 +212,7 @@ class ImportExportService {
         return _parsePasswordData(data);
       }
     } catch (e) {
-      print('导入失败: $e');
+    // print('导入失败: $e');
       return ImportResult.error('导入失败: $e');
     }
   }
@@ -235,7 +235,7 @@ class ImportExportService {
               PasswordEntry.fromJson(passwordData as Map<String, dynamic>);
           passwords.add(password);
         } catch (e) {
-          print('解析密码条目失败: $e');
+    // print('解析密码条目失败: $e');
           // 跳过无效的条目，继续处理其他条目
         }
       }
@@ -318,7 +318,7 @@ class ImportExportService {
   /// 导出到CSV格式
   Future<String?> exportToCSV(List<PasswordEntry> passwords) async {
     try {
-      print('开始CSV导出，密码数量: ${passwords.length}');
+    // print('开始CSV导出，密码数量: ${passwords.length}');
 
       final StringBuffer csvBuffer = StringBuffer();
 
@@ -343,16 +343,16 @@ class ImportExportService {
       final String fileName =
           'passwords_export_${DateTime.now().millisecondsSinceEpoch}.csv';
 
-      print('准备保存CSV文件: $fileName');
+    // print('准备保存CSV文件: $fileName');
 
       if (kIsWeb) {
         // Web平台处理
-        print('Web平台CSV导出');
+    // print('Web平台CSV导出');
         _downloadFileOnWeb(csvBuffer.toString(), fileName, 'text/csv');
         return fileName;
       } else {
         // 桌面端/移动端处理 - 让用户选择保存位置
-        print('桌面端CSV导出，显示文件保存对话框');
+    // print('桌面端CSV导出，显示文件保存对话框');
         String? outputFile = await FilePicker.platform.saveFile(
           dialogTitle: '选择CSV导出位置',
           fileName: fileName,
@@ -360,23 +360,23 @@ class ImportExportService {
           allowedExtensions: ['csv'],
         );
 
-        print('CSV文件选择结果: $outputFile');
+    // print('CSV文件选择结果: $outputFile');
 
         if (outputFile != null) {
           // 写入文件
-          print('写入CSV文件: $outputFile');
+    // print('写入CSV文件: $outputFile');
           final File file = File(outputFile);
           await file.writeAsString(csvBuffer.toString());
-          print('CSV文件写入成功');
+    // print('CSV文件写入成功');
           return outputFile;
         } else {
           // 用户取消了保存
-          print('用户取消了CSV文件保存');
+    // print('用户取消了CSV文件保存');
           return null;
         }
       }
     } catch (e) {
-      print('CSV导出失败: $e');
+    // print('CSV导出失败: $e');
       return null;
     }
   }
@@ -395,7 +395,7 @@ class ImportExportService {
 
         html.Url.revokeObjectUrl(url);
       } catch (e) {
-        print('Web下载失败: $e');
+    // print('Web下载失败: $e');
       }
     }
   }

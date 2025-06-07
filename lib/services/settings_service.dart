@@ -80,7 +80,7 @@ class SettingsService extends ChangeNotifier {
       await _prefs!.setString('logo_path', targetPath);
       notifyListeners();
     } catch (e) {
-      print('设置自定义logo失败: $e');
+    // print('设置自定义logo失败: $e');
       rethrow;
     }
   }
@@ -110,7 +110,7 @@ class SettingsService extends ChangeNotifier {
       await _prefs!.setString('background_path', targetPath);
       notifyListeners();
     } catch (e) {
-      print('设置自定义背景失败: $e');
+    // print('设置自定义背景失败: $e');
       rethrow;
     }
   }
@@ -127,7 +127,7 @@ class SettingsService extends ChangeNotifier {
           await file.delete();
         }
       } catch (e) {
-        print('删除自定义logo文件失败: $e');
+    // print('删除自定义logo文件失败: $e');
       }
     }
 
@@ -148,7 +148,7 @@ class SettingsService extends ChangeNotifier {
           await file.delete();
         }
       } catch (e) {
-        print('删除自定义背景文件失败: $e');
+    // print('删除自定义背景文件失败: $e');
       }
     }
 

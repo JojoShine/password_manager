@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
-import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/password_entry.dart';
@@ -30,24 +29,40 @@ class LocalServerService {
       _serverPort = _generateRandomPort();
       _serverToken = _generateSecureToken();
 
+      // debugPrint('尝试启动本地服务器，端口: $_serverPort');
+
       // 启动HTTP服务器
-      _server =
-          await HttpServer.bind(InternetAddress.loopbackIPv4, _serverPort!);
+      _server = await HttpServer.bind(
+        InternetAddress.loopbackIPv4,
+        _serverPort!,
+        backlog: 10,
+        shared: false,
+      );
 
       // 设置请求处理
-      _server!.listen(_handleRequest);
+      _server!.listen(_handleRequest, onError: (error) {
+        // debugPrint('服务器监听错误: $error');
+      });
 
       // 写入配置文件供浏览器扩展读取
       await _writeServerConfig();
 
       _isRunning = true;
 
-      debugPrint('密码管理器本地服务器已启动: http://127.0.0.1:$_serverPort');
-      debugPrint('服务器Token: $_serverToken');
+      // debugPrint('✅ 密码管理器本地服务器已启动: http://127.0.0.1:$_serverPort');
+      // debugPrint('服务器Token: $_serverToken');
 
       return true;
     } catch (e) {
-      debugPrint('启动本地服务器失败: $e');
+      // debugPrint('❌ 启动本地服务器失败: $e');
+
+      // 如果端口冲突，尝试重新生成端口
+      if (e.toString().contains('port') || e.toString().contains('bind')) {
+        // debugPrint('端口冲突，尝试重新生成端口...');
+        _serverPort = _generateRandomPort();
+        return await startServer();
+      }
+
       return false;
     }
   }
@@ -66,7 +81,7 @@ class LocalServerService {
     _serverPort = null;
     _serverToken = null;
 
-    debugPrint('密码管理器本地服务器已停止');
+    // debugPrint('密码管理器本地服务器已停止');
   }
 
   /// 处理HTTP请求
@@ -103,7 +118,7 @@ class LocalServerService {
       // 路由请求
       await _routeRequest(request);
     } catch (e) {
-      debugPrint('处理请求失败: $e');
+      // debugPrint('处理请求失败: $e');
       await _sendErrorResponse(request.response, 500, '服务器内部错误');
     }
   }
@@ -323,9 +338,9 @@ class LocalServerService {
       };
 
       await configFile.writeAsString(jsonEncode(config));
-      debugPrint('服务器配置已写入: ${configFile.path}');
+      // debugPrint('服务器配置已写入: ${configFile.path}');
     } catch (e) {
-      debugPrint('写入服务器配置失败: $e');
+      // debugPrint('写入服务器配置失败: $e');
     }
   }
 
@@ -337,10 +352,10 @@ class LocalServerService {
 
       if (await configFile.exists()) {
         await configFile.delete();
-        debugPrint('服务器配置文件已删除');
+        // debugPrint('服务器配置文件已删除');
       }
     } catch (e) {
-      debugPrint('删除服务器配置失败: $e');
+      // debugPrint('删除服务器配置失败: $e');
     }
   }
 
@@ -407,7 +422,7 @@ class PasswordService {
       // 如果主数据为空，尝试从备份恢复
       if (passwordsJson.isEmpty) {
         passwordsJson = prefs.getStringList('saved_passwords_backup') ?? [];
-        debugPrint('主数据为空，从备份数据恢复');
+        // debugPrint('主数据为空，从备份数据恢复');
       }
 
       final passwords = passwordsJson
@@ -416,7 +431,7 @@ class PasswordService {
               final json = jsonDecode(jsonString) as Map<String, dynamic>;
               return PasswordEntry.fromJson(json);
             } catch (e) {
-              debugPrint('解析密码条目失败: $e');
+              // debugPrint('解析密码条目失败: $e');
               return null;
             }
           })
@@ -424,10 +439,10 @@ class PasswordService {
           .cast<PasswordEntry>()
           .toList();
 
-      debugPrint('从SharedPreferences加载了 ${passwords.length} 条密码记录');
+      // debugPrint('从SharedPreferences加载了 ${passwords.length} 条密码记录');
       return passwords;
     } catch (e) {
-      debugPrint('从SharedPreferences加载密码失败: $e');
+      // debugPrint('从SharedPreferences加载密码失败: $e');
       return [];
     }
   }
@@ -449,16 +464,16 @@ class PasswordService {
       await prefs.setString(
           'last_backup_time', DateTime.now().toIso8601String());
 
-      debugPrint('密码数据已保存到SharedPreferences，共${passwords.length}条记录');
+      // debugPrint('密码数据已保存到SharedPreferences，共${passwords.length}条记录');
     } catch (e) {
-      debugPrint('保存密码数据到SharedPreferences失败: $e');
+      // debugPrint('保存密码数据到SharedPreferences失败: $e');
       rethrow;
     }
   }
 
   /// 搜索密码
   static Future<List<PasswordEntry>> searchPasswords(String query) async {
-    debugPrint('搜索密码: $query');
+    // debugPrint('搜索密码: $query');
 
     try {
       final allPasswords = await _loadPasswordsFromPreferences();
@@ -480,17 +495,17 @@ class PasswordService {
             notes.contains(queryLower);
       }).toList();
 
-      debugPrint('搜索结果: ${filteredPasswords.length} 条密码记录');
+      // debugPrint('搜索结果: ${filteredPasswords.length} 条密码记录');
       return filteredPasswords;
     } catch (e) {
-      debugPrint('搜索密码失败: $e');
+      // debugPrint('搜索密码失败: $e');
       return [];
     }
   }
 
   /// 保存密码
   static Future<PasswordEntry> savePassword(PasswordEntry entry) async {
-    debugPrint('保存密码: ${entry.title}');
+    // debugPrint('保存密码: ${entry.title}');
 
     try {
       final allPasswords = await _loadPasswordsFromPreferences();
@@ -515,20 +530,20 @@ class PasswordService {
       allPasswords.add(newEntry);
       await _savePasswordsToPreferences(allPasswords);
 
-      debugPrint('密码保存成功，ID: $newId');
+      // debugPrint('密码保存成功，ID: $newId');
 
       // 发送数据变更事件，通知UI刷新
       try {
         // 这里需要动态导入以避免循环依赖
         _notifyPasswordDataChanged();
-        debugPrint('已发送密码数据变更事件');
+        // debugPrint('已发送密码数据变更事件');
       } catch (e) {
-        debugPrint('发送事件失败（不影响主功能）: $e');
+        // debugPrint('发送事件失败（不影响主功能）: $e');
       }
 
       return newEntry;
     } catch (e) {
-      debugPrint('保存密码失败: $e');
+      // debugPrint('保存密码失败: $e');
       throw Exception('保存密码失败: $e');
     }
   }
@@ -536,7 +551,7 @@ class PasswordService {
   /// 更新密码
   static Future<PasswordEntry> updatePassword(
       int id, PasswordEntry entry) async {
-    debugPrint('更新密码 ID: $id');
+    // debugPrint('更新密码 ID: $id');
 
     try {
       final allPasswords = await _loadPasswordsFromPreferences();
@@ -557,17 +572,17 @@ class PasswordService {
       allPasswords[index] = updatedEntry;
       await _savePasswordsToPreferences(allPasswords);
 
-      debugPrint('密码更新成功');
+      // debugPrint('密码更新成功');
       return updatedEntry;
     } catch (e) {
-      debugPrint('更新密码失败: $e');
+      // debugPrint('更新密码失败: $e');
       throw Exception('更新密码失败: $e');
     }
   }
 
   /// 删除密码
   static Future<void> deletePassword(int id) async {
-    debugPrint('删除密码 ID: $id');
+    // debugPrint('删除密码 ID: $id');
 
     try {
       final allPasswords = await _loadPasswordsFromPreferences();
@@ -578,65 +593,64 @@ class PasswordService {
 
       if (allPasswords.length < initialLength) {
         await _savePasswordsToPreferences(allPasswords);
-        debugPrint('密码删除成功');
+        // debugPrint('密码删除成功');
       } else {
         throw Exception('密码不存在或删除失败');
       }
     } catch (e) {
-      debugPrint('删除密码失败: $e');
+      // debugPrint('删除密码失败: $e');
       throw Exception('删除密码失败: $e');
     }
   }
 
   /// 根据域名获取密码
   static Future<List<PasswordEntry>> getPasswordsByDomain(String domain) async {
-    debugPrint('Flutter: ==================== 开始获取域名密码 ====================');
-    debugPrint('Flutter: 请求域名: "$domain"');
+    // debugPrint('Flutter: ==================== 开始获取域名密码 ====================');
+    // debugPrint('Flutter: 请求域名: "$domain"');
 
     if (domain.isEmpty) {
-      debugPrint('Flutter: 域名为空，返回空列表');
+      // debugPrint('Flutter: 域名为空，返回空列表');
       return [];
     }
 
     try {
       // 从SharedPreferences加载所有密码
-      debugPrint('Flutter: 正在从SharedPreferences获取所有密码...');
+      // debugPrint('Flutter: 正在从SharedPreferences获取所有密码...');
       final allPasswords = await _loadPasswordsFromPreferences();
-      debugPrint('Flutter: 从SharedPreferences获取到 ${allPasswords.length} 条密码记录');
+      // debugPrint('Flutter: 从SharedPreferences获取到 ${allPasswords.length} 条密码记录');
 
       // 打印所有密码的网站信息
       if (allPasswords.isNotEmpty) {
-        debugPrint('Flutter: 存储中的密码记录：');
+        // debugPrint('Flutter: 存储中的密码记录：');
         for (int i = 0; i < allPasswords.length; i++) {
           final password = allPasswords[i];
-          debugPrint(
-              'Flutter: 密码 ${i + 1}: title="${password.title}", website="${password.website}", username="${password.username}"');
+          // debugPrint('Flutter: 密码 ${i + 1}: title="${password.title}", website="${password.website}", username="${password.username}"');
         }
       } else {
-        debugPrint('Flutter: ⚠️ SharedPreferences中没有任何密码记录！');
+        // debugPrint('Flutter: ⚠️ SharedPreferences中没有任何密码记录！');
         return [];
       }
 
       // 根据域名匹配密码 - 使用宽松的匹配策略
-      debugPrint('Flutter: 开始宽松域名匹配，目标域名/IP: "$domain"');
+      // debugPrint('Flutter: 开始宽松域名匹配，目标域名/IP: "$domain"');
       final matchedPasswords = allPasswords.where((password) {
         final website = password.website ?? '';
-        debugPrint('Flutter: 检查密码 "${password.title}" - 网站: "$website"');
+        // debugPrint('Flutter: 检查密码 "${password.title}" - 网站: "$website"');
 
         if (website.isEmpty) {
-          debugPrint('Flutter: 跳过 - 网站为空');
+          // debugPrint('Flutter: 跳过 - 网站为空');
           return false;
         }
 
         // 提取密码记录中的域名或IP
         final passwordDomain = _extractDomainFromWebsite(website);
-        debugPrint('Flutter: 提取的域名/IP: "$passwordDomain" (来源: "$website")');
+        // debugPrint('Flutter: 提取的域名/IP: "$passwordDomain" (来源: "$website")');
 
         // 🎯 宽松匹配策略：只要域名或IP地址有任何重叠就认为匹配
 
         // 1. 完全匹配（域名或IP）
         if (passwordDomain == domain) {
-          debugPrint('Flutter: ✅ 完全匹配! "$passwordDomain" == "$domain"');
+          // debugPrint('Flutter: ✅ 完全匹配! "$passwordDomain" == "$domain"');
           return true;
         }
 
@@ -646,7 +660,7 @@ class PasswordService {
 
         if (isCurrentIP && isPasswordIP) {
           if (passwordDomain == domain) {
-            debugPrint('Flutter: ✅ IP地址完全匹配! "$passwordDomain" == "$domain"');
+            // debugPrint('Flutter: ✅ IP地址完全匹配! "$passwordDomain" == "$domain"');
             return true;
           }
         }
@@ -657,44 +671,41 @@ class PasswordService {
           final passwordMainDomain = _extractMainDomain(passwordDomain);
           final currentMainDomain = _extractMainDomain(domain);
 
-          debugPrint(
-              'Flutter: 主域名比较: "$passwordMainDomain" vs "$currentMainDomain"');
+          // debugPrint('Flutter: 主域名比较: "$passwordMainDomain" vs "$currentMainDomain"');
 
           // 主域名匹配
           if (passwordMainDomain == currentMainDomain &&
               passwordMainDomain.isNotEmpty) {
-            debugPrint(
-                'Flutter: ✅ 主域名匹配! "$passwordMainDomain" == "$currentMainDomain"');
+            // debugPrint('Flutter: ✅ 主域名匹配! "$passwordMainDomain" == "$currentMainDomain"');
             return true;
           }
 
           // 包含关系匹配
           if (passwordDomain.contains(domain) ||
               domain.contains(passwordDomain)) {
-            debugPrint('Flutter: ✅ 包含匹配! "$passwordDomain" <-> "$domain"');
+            // debugPrint('Flutter: ✅ 包含匹配! "$passwordDomain" <-> "$domain"');
             return true;
           }
         }
 
-        debugPrint('Flutter: ❌ 无匹配');
+        // debugPrint('Flutter: ❌ 无匹配');
         return false;
       }).toList();
 
-      debugPrint('Flutter: ==================== 匹配结果 ====================');
-      debugPrint('Flutter: 找到 ${matchedPasswords.length} 个匹配的密码');
+      // debugPrint('Flutter: ==================== 匹配结果 ====================');
+      // debugPrint('Flutter: 找到 ${matchedPasswords.length} 个匹配的密码');
       if (matchedPasswords.isNotEmpty) {
         for (int i = 0; i < matchedPasswords.length; i++) {
           final password = matchedPasswords[i];
-          debugPrint(
-              'Flutter: 匹配密码 ${i + 1}: "${password.title}" - ${password.website}');
+          // debugPrint('Flutter: 匹配密码 ${i + 1}: "${password.title}" - ${password.website}');
         }
       }
-      debugPrint('Flutter: ==================== 结束 ====================');
+      // debugPrint('Flutter: ==================== 结束 ====================');
 
       return matchedPasswords;
     } catch (e, stackTrace) {
-      debugPrint('Flutter: ❌ 获取域名密码失败: $e');
-      debugPrint('Flutter: 错误堆栈: $stackTrace');
+      // debugPrint('Flutter: ❌ 获取域名密码失败: $e');
+      // debugPrint('Flutter: 错误堆栈: $stackTrace');
       return [];
     }
   }
@@ -704,9 +715,9 @@ class PasswordService {
     try {
       // 发送密码数据变更事件
       _sendPasswordChangeEvent();
-      debugPrint('密码数据已变更，已发送刷新事件');
+      // debugPrint('密码数据已变更，已发送刷新事件');
     } catch (e) {
-      debugPrint('发送密码变更事件失败: $e');
+      // debugPrint('发送密码变更事件失败: $e');
     }
   }
 
@@ -715,9 +726,9 @@ class PasswordService {
     // 调用全局回调通知UI刷新
     if (onPasswordDataChanged != null) {
       onPasswordDataChanged!();
-      debugPrint('已调用密码数据变更回调');
+      // debugPrint('已调用密码数据变更回调');
     } else {
-      debugPrint('密码数据变更回调未设置');
+      // debugPrint('密码数据变更回调未设置');
     }
   }
 
@@ -739,7 +750,7 @@ class PasswordService {
 
       return cleanUrl.toLowerCase();
     } catch (e) {
-      debugPrint('Flutter: 提取域名失败: $e');
+      // debugPrint('Flutter: 提取域名失败: $e');
       return '';
     }
   }
@@ -781,7 +792,7 @@ class PasswordService {
       // 返回最后两级域名作为主域名
       return '${parts[parts.length - 2]}.${parts[parts.length - 1]}';
     } catch (e) {
-      debugPrint('Flutter: 提取主域名失败: $e');
+      // debugPrint('Flutter: 提取主域名失败: $e');
       return domain;
     }
   }

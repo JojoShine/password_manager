@@ -511,7 +511,7 @@ class _BrowserExtensionPageState extends State<BrowserExtensionPage> {
         Process.run('xdg-open', [directory]);
       }
     } catch (e) {
-      debugPrint('无法打开文件夹: $e');
+    // debugPrint('无法打开文件夹: $e');
     }
   }
 }

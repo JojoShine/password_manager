@@ -81,14 +81,14 @@ class _HomePageState extends State<HomePage> {
     // 监听密码数据变更事件
     _eventSubscription = EventBus.instance.events.listen((event) {
       if (event is PasswordDataChangedEvent) {
-        debugPrint('收到密码数据变更事件，重新加载密码列表');
+    // debugPrint('收到密码数据变更事件，重新加载密码列表');
         _loadPasswords();
       }
     });
 
     // 设置密码数据变更回调
     PasswordService.onPasswordDataChanged = () {
-      debugPrint('收到密码数据变更回调，重新加载密码列表');
+    // debugPrint('收到密码数据变更回调，重新加载密码列表');
       if (mounted) {
         _loadPasswords();
       }
@@ -136,7 +136,7 @@ class _HomePageState extends State<HomePage> {
       if (passwordsJson.isEmpty) {
         passwordsJson = prefs.getStringList('saved_passwords_backup') ?? [];
         if (passwordsJson.isNotEmpty) {
-          print('主数据为空，从备份数据恢复');
+    // print('主数据为空，从备份数据恢复');
           // 恢复主数据
           await prefs.setStringList('saved_passwords', passwordsJson);
         }
@@ -148,7 +148,7 @@ class _HomePageState extends State<HomePage> {
               final json = jsonDecode(jsonString) as Map<String, dynamic>;
               return PasswordEntry.fromJson(json);
             } catch (e) {
-              print('解析密码条目失败: $e');
+    // print('解析密码条目失败: $e');
               return null;
             }
           })
@@ -160,7 +160,7 @@ class _HomePageState extends State<HomePage> {
         _allPasswords = passwords;
       });
 
-      print('成功加载${passwords.length}条密码记录');
+    // print('成功加载${passwords.length}条密码记录');
 
       // 显示最后备份时间
       final lastBackupTime = prefs.getString('last_backup_time');
@@ -178,7 +178,7 @@ class _HomePageState extends State<HomePage> {
         );
       }
     } catch (e) {
-      print('加载密码数据失败: $e');
+    // print('加载密码数据失败: $e');
       setState(() {
         _allPasswords = [];
       });
@@ -201,9 +201,9 @@ class _HomePageState extends State<HomePage> {
       await prefs.setString(
           'last_backup_time', DateTime.now().toIso8601String());
 
-      print('密码数据已保存，共${_allPasswords.length}条记录');
+    // print('密码数据已保存，共${_allPasswords.length}条记录');
     } catch (e) {
-      print('保存密码数据失败: $e');
+    // print('保存密码数据失败: $e');
       rethrow;
     }
   }

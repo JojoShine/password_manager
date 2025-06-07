@@ -43,7 +43,7 @@ class AuthService {
       final settingsMap = json.decode(settingsJson) as Map<String, dynamic>;
       return AppSettings.fromMap(settingsMap);
     } catch (e) {
-      print('加载设置失败: $e');
+    // print('加载设置失败: $e');
       return AppSettings();
     }
   }
@@ -56,7 +56,7 @@ class AuthService {
       await prefs.setString('app_settings', settingsJson);
       _currentSettings = settings;
     } catch (e) {
-      print('保存设置失败: $e');
+    // print('保存设置失败: $e');
     }
   }
 
@@ -198,7 +198,7 @@ class AuthService {
       await prefs.remove('app_settings');
       _currentSettings = null;
     } catch (e) {
-      print('清除设置失败: $e');
+    // print('清除设置失败: $e');
     }
   }
 

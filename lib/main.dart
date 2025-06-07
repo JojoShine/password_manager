@@ -38,9 +38,9 @@ void main() async {
   }
 
   // 初始化Web存储服务（所有平台）
-  print('初始化密码存储服务...');
+  // print('初始化密码存储服务...');
   await WebStorageService.instance.initialize();
-  print('✅ 密码存储服务初始化完成');
+  // print('✅ 密码存储服务初始化完成');
 
   // 初始化设置服务
   await SettingsService.instance.init();
@@ -53,19 +53,19 @@ void main() async {
 
   // 启动本地服务器（用于浏览器扩展通信）
   if (!kIsWeb) {
-    print('开始启动本地服务器...');
+    // print('开始启动本地服务器...');
     try {
       final success = await LocalServerService.instance.startServer();
       if (success) {
-        print('✅ 本地服务器启动成功！');
-        print('🌍 服务器地址: ${LocalServerService.instance.serverUrl}');
-        print('🔑 访问令牌: ${LocalServerService.instance.serverToken}');
+        // print('✅ 本地服务器启动成功！');
+        // print('🌍 服务器地址: ${LocalServerService.instance.serverUrl}');
+        // print('🔑 访问令牌: ${LocalServerService.instance.serverToken}');
       } else {
-        print('❌ 本地服务器启动失败');
+        // print('❌ 本地服务器启动失败');
       }
     } catch (e, stackTrace) {
-      print('❌ 启动本地服务器时出错: $e');
-      print('📋 错误堆栈: $stackTrace');
+      // print('❌ 启动本地服务器时出错: $e');
+      // print('📋 错误堆栈: $stackTrace');
     }
   }
 
