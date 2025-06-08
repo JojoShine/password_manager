@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 
 class BrowserExtensionPage extends StatefulWidget {
   const BrowserExtensionPage({Key? key}) : super(key: key);
@@ -212,10 +213,10 @@ class _BrowserExtensionPageState extends State<BrowserExtensionPage> {
                 ),
               ),
               child: _isDownloading
-                  ? Row(
+                  ? const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const SizedBox(
+                        SizedBox(
                           width: 16,
                           height: 16,
                           child: CircularProgressIndicator(
@@ -224,16 +225,16 @@ class _BrowserExtensionPageState extends State<BrowserExtensionPage> {
                                 AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Text('下载中...', style: const TextStyle(fontSize: 14)),
+                        SizedBox(width: 8),
+                        Text('下载中...', style: TextStyle(fontSize: 14)),
                       ],
                     )
-                  : Row(
+                  : const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.download_rounded, size: 18),
-                        const SizedBox(width: 8),
-                        const Text('立即下载',
+                        Icon(Icons.download_rounded, size: 18),
+                        SizedBox(width: 8),
+                        Text('立即下载',
                             style: TextStyle(
                                 fontSize: 14, fontWeight: FontWeight.w500)),
                       ],
@@ -434,44 +435,106 @@ class _BrowserExtensionPageState extends State<BrowserExtensionPage> {
     });
 
     try {
-      final byteData =
-          await rootBundle.load('assets/files/password_manager_browser.zip');
-      final bytes = byteData.buffer.asUint8List();
+      Uint8List? bytes;
 
-      String? outputFile = await FilePicker.platform.saveFile(
-        dialogTitle: '保存浏览器扩展',
-        fileName: 'password_manager_browser.zip',
-        type: FileType.any,
-      );
+      // 首先尝试从公网地址下载
+      try {
+        final response = await http.get(
+          Uri.parse(
+              'https://tbt-product-station.oss-cn-shanghai.aliyuncs.com/password_manager_browser/password_manager_browser.zip'),
+          headers: {
+            'User-Agent': 'PasswordManager/1.0',
+          },
+        ).timeout(const Duration(seconds: 30));
 
-      if (outputFile != null) {
-        final file = File(outputFile);
-        await file.writeAsBytes(bytes);
+        if (response.statusCode == 200) {
+          bytes = response.bodyBytes;
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(
+                  children: [
+                    const Icon(Icons.cloud_download,
+                        color: Colors.white, size: 20),
+                    const SizedBox(width: 8),
+                    const Text('已从云端获取最新版本'),
+                  ],
+                ),
+                backgroundColor: Colors.blue,
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+              ),
+            );
+          }
+        } else {
+          throw Exception('HTTP ${response.statusCode}');
+        }
+      } catch (e) {
+        // 网络下载失败，回退到本地assets
+        // print('网络下载失败，使用本地版本: $e');
+        final byteData =
+            await rootBundle.load('assets/files/password_manager_browser.zip');
+        bytes = byteData.buffer.asUint8List();
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Row(
                 children: [
-                  const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                  const Icon(Icons.folder, color: Colors.white, size: 20),
                   const SizedBox(width: 8),
-                  Expanded(
-                    child: Text('扩展已下载到: ${file.path}'),
-                  ),
+                  const Text('网络获取失败，使用本地版本'),
                 ],
               ),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 4),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 2),
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8)),
-              action: SnackBarAction(
-                label: '打开文件夹',
-                textColor: Colors.white,
-                onPressed: () => _openFileLocation(file.path),
-              ),
             ),
           );
+        }
+      }
+
+      if (bytes != null) {
+        String? outputFile = await FilePicker.platform.saveFile(
+          dialogTitle: '保存浏览器扩展',
+          fileName: 'password_manager_browser.zip',
+          type: FileType.any,
+        );
+
+        if (outputFile != null) {
+          final file = File(outputFile);
+          await file.writeAsBytes(bytes);
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(
+                  children: [
+                    const Icon(Icons.check_circle,
+                        color: Colors.white, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text('扩展已下载到: ${file.path}'),
+                    ),
+                  ],
+                ),
+                backgroundColor: Colors.green,
+                duration: const Duration(seconds: 4),
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+                action: SnackBarAction(
+                  label: '打开文件夹',
+                  textColor: Colors.white,
+                  onPressed: () => _openFileLocation(file.path),
+                ),
+              ),
+            );
+          }
         }
       }
     } catch (e) {
@@ -511,7 +574,7 @@ class _BrowserExtensionPageState extends State<BrowserExtensionPage> {
         Process.run('xdg-open', [directory]);
       }
     } catch (e) {
-    // debugPrint('无法打开文件夹: $e');
+      // debugPrint('无法打开文件夹: $e');
     }
   }
 }
