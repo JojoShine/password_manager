@@ -24,10 +24,28 @@ class Footer extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.support_agent,
-                size: 16,
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: Image.asset(
+                    'assets/app.png',
+                    width: 16,
+                    height: 16,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Icon(
+                        Icons.support_agent,
+                        size: 16,
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withOpacity(0.6),
+                      );
+                    },
+                  ),
+                ),
               ),
               const SizedBox(width: 8),
               Text(

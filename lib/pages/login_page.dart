@@ -494,20 +494,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: Image.asset(
-              'assets/logo.jpg',
-              width: 50,
-              height: 50,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                // 如果logo加载失败，回退到原来的图标
-                return const Icon(
-                  Icons.security,
-                  color: Colors.white,
-                  size: 50,
-                );
-              },
-            ),
+            child: _buildLogoImage(),
           ),
         ),
         const SizedBox(height: 24),
@@ -783,5 +770,42 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
               ),
       ),
     );
+  }
+
+  /// 构建Logo图片显示
+  Widget _buildLogoImage() {
+    final logoPath = SettingsService.instance.getLogoImagePath();
+
+    if (SettingsService.instance.hasCustomLogo) {
+      // 显示自定义logo
+      return Image.file(
+        File(logoPath),
+        width: 50,
+        height: 50,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return const Icon(
+            Icons.security,
+            color: Colors.white,
+            size: 50,
+          );
+        },
+      );
+    } else {
+      // 显示默认logo
+      return Image.asset(
+        logoPath,
+        width: 50,
+        height: 50,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return const Icon(
+            Icons.security,
+            color: Colors.white,
+            size: 50,
+          );
+        },
+      );
+    }
   }
 }

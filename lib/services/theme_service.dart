@@ -77,8 +77,9 @@ class ThemeService extends ChangeNotifier {
     appBarTheme: const AppBarTheme(
       centerTitle: true,
       elevation: 0,
-      backgroundColor: Colors.transparent,
+      backgroundColor: Color(0xFF121212), // 深色模式下使用深色背景
       foregroundColor: Colors.white,
+      scrolledUnderElevation: 0, // 防止滚动时背景色变化
     ),
 
     cardTheme: const CardTheme(
@@ -159,8 +160,9 @@ class ThemeService extends ChangeNotifier {
     appBarTheme: const AppBarTheme(
       centerTitle: true,
       elevation: 0,
-      backgroundColor: Colors.transparent,
+      backgroundColor: Colors.white, // 浅色模式下固定使用白色背景
       foregroundColor: Color(0xFF1F2937),
+      scrolledUnderElevation: 0, // 防止滚动时背景色变化
     ),
 
     cardTheme: CardTheme(
