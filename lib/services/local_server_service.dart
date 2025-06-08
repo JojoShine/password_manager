@@ -646,15 +646,15 @@ class PasswordService {
         final passwordDomain = _extractDomainFromWebsite(website);
         // debugPrint('Flutter: 提取的域名/IP: "$passwordDomain" (来源: "$website")');
 
-        // 🎯 宽松匹配策略：只要域名或IP地址有任何重叠就认为匹配
+        // 🎯 严格匹配策略：只允许精确匹配和严格的子域名匹配
 
-        // 1. 完全匹配（域名或IP）
+        // 1. 完全精确匹配（域名或IP）
         if (passwordDomain == domain) {
           // debugPrint('Flutter: ✅ 完全匹配! "$passwordDomain" == "$domain"');
           return true;
         }
 
-        // 2. 检查是否都是IP地址
+        // 2. IP地址精确匹配
         final isCurrentIP = _isIPAddress(domain);
         final isPasswordIP = _isIPAddress(passwordDomain);
 
@@ -665,25 +665,19 @@ class PasswordService {
           }
         }
 
-        // 3. 域名包含关系匹配（任意方向）
-        if (passwordDomain.isNotEmpty && domain.isNotEmpty) {
-          // 提取主域名进行比较（去掉子域名）
-          final passwordMainDomain = _extractMainDomain(passwordDomain);
-          final currentMainDomain = _extractMainDomain(domain);
-
-          // debugPrint('Flutter: 主域名比较: "$passwordMainDomain" vs "$currentMainDomain"');
-
-          // 主域名匹配
-          if (passwordMainDomain == currentMainDomain &&
-              passwordMainDomain.isNotEmpty) {
-            // debugPrint('Flutter: ✅ 主域名匹配! "$passwordMainDomain" == "$currentMainDomain"');
-            return true;
-          }
-
-          // 包含关系匹配
-          if (passwordDomain.contains(domain) ||
-              domain.contains(passwordDomain)) {
-            // debugPrint('Flutter: ✅ 包含匹配! "$passwordDomain" <-> "$domain"');
+        // 3. 严格的子域名匹配：仅允许直接的父子域名关系
+        // 移除主域名匹配以避免 chinatelecom.com.cn 和 ccopyright.com.cn 被错误匹配
+        if (passwordDomain.isNotEmpty &&
+            domain.isNotEmpty &&
+            !isCurrentIP &&
+            !isPasswordIP) {
+          // 只允许直接的子域名关系，例如：
+          // - www.example.com 匹配 example.com
+          // - api.example.com 匹配 example.com
+          // 但不允许 example.com.cn 匹配其他 *.com.cn 域名
+          if (_isDirectSubdomain(passwordDomain, domain) ||
+              _isDirectSubdomain(domain, passwordDomain)) {
+            // debugPrint('Flutter: ✅ 严格子域名匹配! "$passwordDomain" <-> "$domain"');
             return true;
           }
         }
@@ -795,5 +789,23 @@ class PasswordService {
       // debugPrint('Flutter: 提取主域名失败: $e');
       return domain;
     }
+  }
+
+  /// 检查一个域名是否是另一个域名的直接子域名
+  static bool _isDirectSubdomain(String subdomain, String mainDomain) {
+    if (subdomain.isEmpty || mainDomain.isEmpty) return false;
+
+    // 如果是IP地址，不进行子域名匹配
+    if (_isIPAddress(subdomain) || _isIPAddress(mainDomain)) return false;
+
+    // 子域名必须以 ".主域名" 结尾
+    if (subdomain.endsWith('.$mainDomain')) {
+      // 确保前缀不包含额外的点（即是直接子域名，不是二级子域名）
+      final prefix =
+          subdomain.substring(0, subdomain.length - mainDomain.length - 1);
+      return !prefix.contains('.');
+    }
+
+    return false;
   }
 }
