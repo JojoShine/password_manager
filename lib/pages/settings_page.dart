@@ -245,6 +245,99 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  // /// 显示认证状态信息
+  // Future<void> _showAuthStatus() async {
+  //   try {
+  //     final authService = AuthService.instance;
+  //     final needsAuth = await authService.needsAuthentication();
+  //     final settings = await authService.getCurrentSettings();
+  //     final timeoutMinutes = SettingsService.instance.lockTimeoutMinutes;
+
+  //     if (mounted) {
+  //       showDialog(
+  //         context: context,
+  //         builder: (context) => AlertDialog(
+  //           title: const Text('认证状态信息'),
+  //           content: Column(
+  //             mainAxisSize: MainAxisSize.min,
+  //             crossAxisAlignment: CrossAxisAlignment.start,
+  //             children: [
+  //               Text('需要重新认证: ${needsAuth ? "是" : "否"}',
+  //                   style: TextStyle(
+  //                       color: needsAuth ? Colors.red : Colors.green,
+  //                       fontWeight: FontWeight.bold)),
+  //               const SizedBox(height: 8),
+  //               Text('锁定超时时间: $timeoutMinutes 分钟'),
+  //               const SizedBox(height: 8),
+  //               Text(
+  //                   '当前时间: ${DateTime.now().toLocal().toString().substring(0, 19)}',
+  //                   style: const TextStyle(fontSize: 12)),
+  //               const SizedBox(height: 8),
+  //               if (settings.lastUnlockTime != null) ...[
+  //                 Text(
+  //                     '最后解锁时间: ${settings.lastUnlockTime!.toLocal().toString().substring(0, 19)}',
+  //                     style: const TextStyle(fontSize: 12)),
+  //                 const SizedBox(height: 8),
+  //                 Text(
+  //                     '距上次解锁: ${DateTime.now().difference(settings.lastUnlockTime!).inMinutes} 分钟 (${DateTime.now().difference(settings.lastUnlockTime!).inSeconds} 秒)',
+  //                     style: TextStyle(
+  //                         color: Colors.orange, fontWeight: FontWeight.bold)),
+  //               ] else
+  //                 const Text('未记录解锁时间', style: TextStyle(color: Colors.red)),
+  //               const SizedBox(height: 8),
+  //               Text('是否首次启动: ${settings.isFirstLaunch ? "是" : "否"}'),
+  //               const SizedBox(height: 8),
+  //               Text('是否设置主密码: ${settings.hasMasterPassword ? "是" : "否"}'),
+  //               const SizedBox(height: 16),
+  //               Container(
+  //                 padding: const EdgeInsets.all(12),
+  //                 decoration: BoxDecoration(
+  //                   color: Colors.blue.withOpacity(0.1),
+  //                   borderRadius: BorderRadius.circular(8),
+  //                 ),
+  //                 child: Column(
+  //                   crossAxisAlignment: CrossAxisAlignment.start,
+  //                   children: [
+  //                     const Text('锁定逻辑说明:',
+  //                         style: TextStyle(fontWeight: FontWeight.bold)),
+  //                     const SizedBox(height: 4),
+  //                     const Text('• 每次验证主密码后更新"最后解锁时间"',
+  //                         style: TextStyle(fontSize: 12)),
+  //                     const Text('• 应用启动时检查距离上次解锁是否超过设定时间',
+  //                         style: TextStyle(fontSize: 12)),
+  //                     const Text('• 超过时间则要求重新输入密码',
+  //                         style: TextStyle(fontSize: 12)),
+  //                     if (settings.lastUnlockTime != null && timeoutMinutes > 0)
+  //                       Text(
+  //                           '• 当前将在 ${settings.lastUnlockTime!.add(Duration(minutes: timeoutMinutes)).toLocal().toString().substring(0, 19)} 后锁定',
+  //                           style: const TextStyle(
+  //                               fontSize: 12, color: Colors.red)),
+  //                   ],
+  //                 ),
+  //               ),
+  //             ],
+  //           ),
+  //           actions: [
+  //             TextButton(
+  //               onPressed: () => Navigator.of(context).pop(),
+  //               child: const Text('确定'),
+  //             ),
+  //           ],
+  //         ),
+  //       );
+  //     }
+  //   } catch (e) {
+  //     if (mounted) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(
+  //           content: Text('获取认证状态失败: $e'),
+  //           backgroundColor: Colors.red,
+  //         ),
+  //       );
+  //     }
+  //   }
+  // }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(

@@ -22,8 +22,8 @@ void main() async {
     await windowManager.ensureInitialized();
 
     const windowOptions = WindowOptions(
-      size: Size(1080, 1250), // 默认窗口大小：宽1080，高1250
-      minimumSize: Size(600, 800), // 最小窗口大小
+      size: Size(900, 900), // 默认窗口大小：宽1080，高1250
+      minimumSize: Size(400, 600), // 最小窗口大小
       center: true, // 居中显示
       backgroundColor: Colors.transparent,
       skipTaskbar: false,
@@ -134,57 +134,92 @@ class AuthWrapper extends StatefulWidget {
   State<AuthWrapper> createState() => _AuthWrapperState();
 }
 
-class _AuthWrapperState extends State<AuthWrapper> {
+class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
   final AuthService _authService = AuthService.instance;
+  bool _needsAuth = true;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _checkAuthStatus();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    // 当应用从后台回到前台时，重新检查认证状态
+    if (state == AppLifecycleState.resumed) {
+      _checkAuthStatus();
+    }
+  }
+
+  /// 检查认证状态并更新UI
+  Future<void> _checkAuthStatus() async {
+    try {
+      final needsAuth = await _authService.needsAuthentication();
+
+      if (mounted) {
+        setState(() {
+          _needsAuth = needsAuth;
+          _isLoading = false;
+        });
+
+        // 如果当前在主页面但需要认证，强制跳转到登录页
+        if (needsAuth && !_isLoading) {
+          _navigateToLogin();
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _needsAuth = true;
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  /// 跳转到登录页面
+  void _navigateToLogin() {
+    if (mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const LoginPage()),
+        (route) => false,
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<bool>(
-      future: _checkAuthStatus(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          // 显示加载界面
-          return const Scaffold(
-            body: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('正在初始化...'),
-                ],
-              ),
-            ),
-          );
-        }
+    if (_isLoading) {
+      // 显示加载界面
+      return const Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('正在初始化...'),
+            ],
+          ),
+        ),
+      );
+    }
 
-        final needsAuth = snapshot.data ?? true;
-
-        if (needsAuth) {
-          return const LoginPage();
-        } else {
-          return const HomePage();
-        }
-      },
-    );
-  }
-
-  /// 检查认证状态
-  Future<bool> _checkAuthStatus() async {
-    try {
-      // 检查是否需要认证
-      final needsAuth = await _authService.needsAuthentication();
-
-      if (!needsAuth) {
-        // 检查是否在免密登录时间内
-        final isWithinAutoUnlock = await _authService.isWithinAutoUnlockTime();
-        return !isWithinAutoUnlock;
-      }
-
-      return needsAuth;
-    } catch (e) {
-      // 如果出现错误，默认需要认证
-      return true;
+    if (_needsAuth) {
+      return const LoginPage();
+    } else {
+      return const HomePage();
     }
   }
 }

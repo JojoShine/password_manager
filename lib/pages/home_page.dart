@@ -44,6 +44,9 @@ class _HomePageState extends State<HomePage> {
   // 事件总线订阅
   late StreamSubscription<AppEvent> _eventSubscription;
 
+  // 认证检查定时器
+  Timer? _authCheckTimer;
+
   // 获取所有分类
   List<String> get _categories =>
       ['全部', ...Category.predefinedCategories.map((c) => c.name)];
@@ -94,7 +97,42 @@ class _HomePageState extends State<HomePage> {
       }
     };
 
+    // 启动周期性认证检查
+    _startAuthCheck();
+
     _loadPasswords();
+  }
+
+  /// 启动周期性认证检查
+  void _startAuthCheck() {
+    // 每30秒检查一次认证状态
+    _authCheckTimer =
+        Timer.periodic(const Duration(seconds: 30), (timer) async {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
+      try {
+        final needsAuth = await _authService.needsAuthentication();
+        if (needsAuth) {
+          _navigateToLogin();
+          timer.cancel();
+        }
+      } catch (e) {
+        // 忽略检查失败，继续下次检查
+      }
+    });
+  }
+
+  /// 跳转到登录页面
+  void _navigateToLogin() {
+    if (mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const LoginPage()),
+        (route) => false,
+      );
+    }
   }
 
   /// 加载密码数据（暂时从SharedPreferences加载）
@@ -223,6 +261,7 @@ class _HomePageState extends State<HomePage> {
   void dispose() {
     _searchController.dispose();
     _eventSubscription.cancel(); // 取消事件监听
+    _authCheckTimer?.cancel(); // 取消认证检查定时器
     super.dispose();
   }
 
@@ -1779,7 +1818,7 @@ class _HomePageState extends State<HomePage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '点击右下角的添加按钮来创建密码条目',
+                  '点击右上角的"添加密码"按钮来创建密码条目',
                   style: TextStyle(
                     fontSize: 14,
                     color: Theme.of(context).colorScheme.onSurfaceVariant,

@@ -4,6 +4,7 @@ import 'package:crypto/crypto.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_settings.dart';
+import 'settings_service.dart';
 
 /// 认证服务类
 class AuthService {
@@ -43,7 +44,7 @@ class AuthService {
       final settingsMap = json.decode(settingsJson) as Map<String, dynamic>;
       return AppSettings.fromMap(settingsMap);
     } catch (e) {
-    // print('加载设置失败: $e');
+      // print('加载设置失败: $e');
       return AppSettings();
     }
   }
@@ -56,7 +57,7 @@ class AuthService {
       await prefs.setString('app_settings', settingsJson);
       _currentSettings = settings;
     } catch (e) {
-    // print('保存设置失败: $e');
+      // print('保存设置失败: $e');
     }
   }
 
@@ -116,13 +117,19 @@ class AuthService {
 
     if (isValid) {
       // 更新最后解锁时间
+      final now = DateTime.now();
       final updatedSettings = settings.copyWith(
-        lastUnlockTime: DateTime.now(),
+        lastUnlockTime: now,
       );
       await _saveSettings(updatedSettings);
 
+      // 强制刷新缓存
+      _currentSettings = updatedSettings;
+
       // 临时保存主密码用于当前会话的加密操作
       _currentMasterPassword = password;
+
+      print('密码验证成功，已更新最后解锁时间: $now');
     }
 
     return isValid;
@@ -130,8 +137,34 @@ class AuthService {
 
   /// 检查是否需要认证
   Future<bool> needsAuthentication() async {
-    final settings = await getCurrentSettings();
-    return settings.needsAuthentication;
+    // 强制重新加载设置以获取最新数据
+    _currentSettings = await _loadSettings();
+    final settings = _currentSettings!;
+
+    if (settings.masterPasswordHash == null || settings.isFirstLaunch) {
+      // print('需要认证：没有设置主密码或首次启动');
+      return true;
+    }
+
+    if (settings.lastUnlockTime == null) {
+      // print('需要认证：没有记录解锁时间');
+      return true;
+    }
+
+    // 获取锁定超时时间（从SettingsService获取）
+    final timeoutMinutes = SettingsService.instance.lockTimeoutMinutes;
+    final now = DateTime.now();
+    final timeSinceLastUnlock = now.difference(settings.lastUnlockTime!);
+
+    // 检查是否超过锁定时间
+    final needsAuth = timeSinceLastUnlock.inMinutes >= timeoutMinutes;
+
+    // 如果超过锁定时间，自动锁定应用
+    if (needsAuth) {
+      await lockApp();
+    }
+
+    return needsAuth;
   }
 
   /// 检查是否在免密登录时间内
@@ -142,7 +175,17 @@ class AuthService {
       return false;
     }
 
-    return !settings.needsAuthentication;
+    if (settings.lastUnlockTime == null) {
+      return false;
+    }
+
+    // 获取锁定超时时间（从SettingsService获取）
+    final timeoutMinutes = SettingsService.instance.lockTimeoutMinutes;
+    final timeSinceLastUnlock =
+        DateTime.now().difference(settings.lastUnlockTime!);
+
+    // 如果未超过锁定时间，说明在免密登录时间内
+    return timeSinceLastUnlock.inMinutes < timeoutMinutes;
   }
 
   /// 获取当前会话的主密码（用于加密操作）
@@ -198,7 +241,7 @@ class AuthService {
       await prefs.remove('app_settings');
       _currentSettings = null;
     } catch (e) {
-    // print('清除设置失败: $e');
+      // print('清除设置失败: $e');
     }
   }
 
