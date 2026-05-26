@@ -26,7 +26,6 @@ jobs:
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
-          cache: true
       
       - name: Verify Flutter installation
         run: |
@@ -66,7 +65,6 @@ jobs:
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
-          cache: true
       
       - name: Verify Flutter installation
         run: |
@@ -75,6 +73,9 @@ jobs:
       
       - name: Install dependencies
         run: flutter pub get
+      
+      - name: Enable Windows desktop support
+        run: flutter config --enable-windows-desktop
       
       - name: Build Windows app
         run: flutter build windows --release
