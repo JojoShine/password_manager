@@ -1,0 +1,127 @@
+name: Build and Release Flutter App
+
+on:
+  push:
+    branches: [ main, master ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # 允许手动触发
+
+env:
+  FLUTTER_VERSION: '3.24.0'
+
+jobs:
+  build-macos:
+    name: Build macOS App
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+      
+      - name: Verify Flutter installation
+        run: |
+          flutter doctor -v
+          flutter --version
+      
+      - name: Install dependencies
+        run: flutter pub get
+      
+      - name: Build macOS app
+        run: flutter build macos --release
+      
+      - name: Create DMG package
+        run: |
+          cd build/macos/Build/Products/Release
+          hdiutil create -volname "Password Manager" \
+            -srcfolder "password_manager.app" \
+            -ov -format UDZO password_manager.dmg
+      
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: password-manager-macos
+          path: build/macos/Build/Products/Release/password_manager.dmg
+          retention-days: 30
+
+  build-windows:
+    name: Build Windows App
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
+          cache: true
+      
+      - name: Verify Flutter installation
+        run: |
+          flutter doctor -v
+          flutter --version
+      
+      - name: Install dependencies
+        run: flutter pub get
+      
+      - name: Build Windows app
+        run: flutter build windows --release
+      
+      - name: Create ZIP package
+        uses: vimtor/action-zip@v1
+        with:
+          files: build/windows/x64/runner/Release/
+          dest: password_manager_windows.zip
+      
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: password-manager-windows
+          path: password_manager_windows.zip
+          retention-days: 30
+
+  release:
+    name: Create Release
+    needs: [build-macos, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: password-manager-macos
+      
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: password-manager-windows
+      
+      - name: Get tag name
+        id: tag_name
+        run: echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.tag_name.outputs.TAG_NAME }}
+          name: Release ${{ steps.tag_name.outputs.TAG_NAME }}
+          draft: false
+          prerelease: false
+          files: |
+            password_manager.dmg
+            password_manager_windows.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -82,7 +82,7 @@ class ThemeService extends ChangeNotifier {
       scrolledUnderElevation: 0, // 防止滚动时背景色变化
     ),
 
-    cardTheme: const CardTheme(
+    cardTheme: const CardThemeData(
       elevation: 8,
       margin: EdgeInsets.all(8),
       color: Color(0xFF2C2C2C),
@@ -165,7 +165,7 @@ class ThemeService extends ChangeNotifier {
       scrolledUnderElevation: 0, // 防止滚动时背景色变化
     ),
 
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       elevation: 1,
       margin: const EdgeInsets.all(8),
       color: Colors.white,

@@ -80,10 +80,13 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> {
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    
+    // 添加应用生命周期监听
+    WidgetsBinding.instance.addObserver(this);
 
     // 监听主题变化
     ThemeService.instance.addListener(_onThemeChanged);
@@ -93,7 +96,42 @@ class _MyAppState extends State<MyApp> {
   @override
   void dispose() {
     ThemeService.instance.removeListener(_onThemeChanged);
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+  
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    
+    // 当应用进入后台或恢复时，确保服务器仍在运行
+    if (state == AppLifecycleState.paused) {
+      print('应用进入后台，保持服务器运行');
+      // 不关闭服务器，让它继续运行
+    } else if (state == AppLifecycleState.resumed) {
+      print('应用恢复到前台，检查服务器状态');
+      // 确保服务器仍在运行
+      _ensureServerRunning();
+    }
+  }
+  
+  /// 确保服务器正在运行
+  Future<void> _ensureServerRunning() async {
+    try {
+      if (!LocalServerService.instance.isRunning) {
+        print('服务器未运行，重新启动...');
+        final success = await LocalServerService.instance.startServer();
+        if (success) {
+          print('✅ 服务器重启成功');
+        } else {
+          print('❌ 服务器重启失败');
+        }
+      } else {
+        print('服务器正常运行');
+      }
+    } catch (e) {
+      print('检查服务器状态失败: $e');
+    }
   }
 
   void _onThemeChanged() {

@@ -76,6 +76,12 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       setState(() {
         _isFirstLaunch = isFirst || !hasPassword;
       });
+      
+      // 检查是否处于锁定状态
+      if (!isFirst && hasPassword && _authService.isLockedOut()) {
+        final remainingTime = _authService.getRemainingLockoutTime();
+        _showError('账户已被锁定，请${remainingTime}分钟后再试');
+      }
     } catch (e) {
       _showError('初始化失败：$e');
     }
@@ -90,8 +96,9 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     // 震动反馈
     HapticFeedback.lightImpact();
 
-    // 3秒后清除错误信息
-    Future.delayed(const Duration(seconds: 3), () {
+    // 对于锁定信息，延长显示时间到10秒
+    final isLockoutMessage = message.contains('锁定') || message.contains('分钟');
+    Future.delayed(Duration(seconds: isLockoutMessage ? 10 : 3), () {
       if (mounted) {
         setState(() {
           _errorMessage = '';
@@ -130,7 +137,15 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           HapticFeedback.mediumImpact();
           _navigateToHome();
         } else {
-          _showError('密码错误，请重试');
+          // 获取失败尝试信息
+          final attemptInfo = _authService.getFailedAttemptInfo();
+          final remainingAttempts = attemptInfo['maxAttempts'] - attemptInfo['failedAttempts'];
+          
+          if (attemptInfo['isLockedOut']) {
+            _showError('账户已被锁定，请${attemptInfo['remainingLockoutTime']}分钟后再试');
+          } else {
+            _showError('密码错误，还剩$remainingAttempts次尝试机会');
+          }
         }
       }
     } catch (e) {

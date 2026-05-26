@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -19,6 +20,12 @@ class LocalServerService {
   String? _serverToken;
   int? _serverPort;
   bool _isRunning = false;
+  
+  // 新增：服务器健康检查
+  Timer? _healthCheckTimer;
+  int _consecutiveFailures = 0;
+  static const int MAX_CONSECUTIVE_FAILURES = 3;
+  static const Duration HEALTH_CHECK_INTERVAL = Duration(seconds: 30);
 
   /// 启动本地服务器
   Future<bool> startServer() async {
@@ -42,12 +49,17 @@ class LocalServerService {
       // 设置请求处理
       _server!.listen(_handleRequest, onError: (error) {
         // debugPrint('服务器监听错误: $error');
+        _handleServerError(error);
       });
 
       // 写入配置文件供浏览器扩展读取
       await _writeServerConfig();
 
       _isRunning = true;
+      _consecutiveFailures = 0;
+
+      // 启动健康检查
+      _startHealthCheck();
 
       // debugPrint('✅ 密码管理器本地服务器已启动: http://127.0.0.1:$_serverPort');
       // debugPrint('服务器Token: $_serverToken');
@@ -66,11 +78,90 @@ class LocalServerService {
       return false;
     }
   }
+  
+  /// 启动健康检查定时器
+  void _startHealthCheck() {
+    _healthCheckTimer?.cancel();
+    _healthCheckTimer = Timer.periodic(HEALTH_CHECK_INTERVAL, (timer) {
+      _performHealthCheck();
+    });
+    // debugPrint('服务器健康检查已启动，间隔: ${HEALTH_CHECK_INTERVAL.inSeconds}秒');
+  }
+  
+  /// 执行健康检查
+  Future<void> _performHealthCheck() async {
+    if (!_isRunning || _server == null) {
+      // debugPrint('健康检查发现服务器未运行，尝试重启');
+      await _restartServer();
+      return;
+    }
+    
+    try {
+      // 通过尝试创建一个简单的连接来检查服务器状态
+      // 由于HttpServer没有直接的状态检查方法，我们通过_isRunning标志来判断
+      // 如果服务器出现错误，_handleRequest会捕获并增加失败计数
+      
+      // 这里只是确认_isRunning标志仍然为true
+      if (_isRunning) {
+        _consecutiveFailures = 0; // 重置失败计数
+        // debugPrint('服务器健康检查通过');
+      } else {
+        _consecutiveFailures++;
+        // debugPrint('服务器健康检查失败，连续失败次数: $_consecutiveFailures');
+        
+        if (_consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+          // debugPrint('连续失败次数过多，重启服务器');
+          await _restartServer();
+        }
+      }
+    } catch (e) {
+      _consecutiveFailures++;
+      // debugPrint('健康检查异常: $e');
+      
+      if (_consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+        await _restartServer();
+      }
+    }
+  }
+  
+  /// 重启服务器
+  Future<void> _restartServer() async {
+    // debugPrint('正在重启服务器...');
+    await stopServer();
+    
+    // 等待一小段时间再重启
+    await Future.delayed(Duration(seconds: 1));
+    
+    final success = await startServer();
+    if (success) {
+      // debugPrint('✅ 服务器重启成功');
+    } else {
+      // debugPrint('❌ 服务器重启失败');
+    }
+  }
+  
+  /// 处理服务器错误
+  void _handleServerError(dynamic error) {
+    // debugPrint('服务器错误: $error');
+    _consecutiveFailures++;
+    
+    if (_consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+      // debugPrint('检测到严重错误，计划重启服务器');
+      // 异步重启，避免阻塞
+      Future.delayed(Duration(seconds: 2), () {
+        _restartServer();
+      });
+    }
+  }
 
   /// 停止本地服务器
   Future<void> stopServer() async {
+    // 停止健康检查
+    _healthCheckTimer?.cancel();
+    _healthCheckTimer = null;
+    
     if (_server != null) {
-      await _server!.close();
+      await _server!.close(force: true);
       _server = null;
     }
 
@@ -80,6 +171,7 @@ class LocalServerService {
     _isRunning = false;
     _serverPort = null;
     _serverToken = null;
+    _consecutiveFailures = 0;
 
     // debugPrint('密码管理器本地服务器已停止');
   }

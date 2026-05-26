@@ -30,18 +30,32 @@ class SettingsService extends ChangeNotifier {
 
   /// 初始化设置服务
   Future<void> init() async {
+    print('🔧 [SettingsService] 开始初始化...');
     _prefs = await SharedPreferences.getInstance();
+    print('✅ [SettingsService] SharedPreferences 获取成功');
     await _loadSettings();
+    print('✅ [SettingsService] 初始化完成，锁定超时时间: ${_lockTimeoutMinutes} 分钟');
   }
 
   /// 加载设置
   Future<void> _loadSettings() async {
-    if (_prefs == null) return;
+    if (_prefs == null) {
+      print('⚠️ [SettingsService] _prefs 为 null，无法加载设置');
+      return;
+    }
 
     _appTitle = _prefs!.getString('app_title') ?? '甜宝塔的密码管理工具';
     _logoPath = _prefs!.getString('logo_path');
     _backgroundPath = _prefs!.getString('background_path');
-    _lockTimeoutMinutes = _prefs!.getInt('lock_timeout_minutes') ?? 30;
+    
+    // 详细记录锁定超时时间的加载
+    final savedValue = _prefs!.getInt('lock_timeout_minutes');
+    print('🔍 [SettingsService] 从SharedPreferences读取 lock_timeout_minutes: $savedValue');
+    
+    _lockTimeoutMinutes = savedValue ?? 30;
+    
+    print('🔍 [SettingsService] 最终使用的锁定超时时间: $_lockTimeoutMinutes 分钟');
+    print('🔍 [SettingsService] 是否使用默认值: ${savedValue == null ? "是 (30)" : "否"}');
 
     notifyListeners();
   }
@@ -159,10 +173,21 @@ class SettingsService extends ChangeNotifier {
 
   /// 设置锁定超时时间（分钟）
   Future<void> setLockTimeout(int minutes) async {
-    if (_prefs == null) return;
+    if (_prefs == null) {
+      print('⚠️ [SettingsService] _prefs 为 null，无法保存锁定超时时间');
+      return;
+    }
 
+    print('💾 [SettingsService] 正在保存锁定超时时间: $minutes 分钟');
+    
     _lockTimeoutMinutes = minutes;
     await _prefs!.setInt('lock_timeout_minutes', minutes);
+    
+    // 验证保存是否成功
+    final savedValue = _prefs!.getInt('lock_timeout_minutes');
+    print('✅ [SettingsService] 保存完成，验证读取值: $savedValue');
+    print('✅ [SettingsService] 当前内存中的值: $_lockTimeoutMinutes');
+    
     notifyListeners();
   }
 
