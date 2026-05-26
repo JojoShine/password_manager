@@ -82,11 +82,9 @@ class ThemeService extends ChangeNotifier {
       scrolledUnderElevation: 0, // 防止滚动时背景色变化
     ),
 
-    cardTheme: const CardThemeData(
-      elevation: 8,
-      margin: EdgeInsets.all(8),
-      color: Color(0xFF2C2C2C),
-    ),
+    // cardTheme 配置已移除，使用默认样式以避免版本兼容性问题
+    // 在 Flutter 3.24.x 中使用 CardTheme，在 3.35.x 中使用 CardThemeData
+    // 为了兼容性，暂时使用默认卡片主题
 
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
@@ -165,19 +163,9 @@ class ThemeService extends ChangeNotifier {
       scrolledUnderElevation: 0, // 防止滚动时背景色变化
     ),
 
-    cardTheme: CardThemeData(
-      elevation: 1,
-      margin: const EdgeInsets.all(8),
-      color: Colors.white,
-      shadowColor: Colors.black.withOpacity(0.1),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: const Color(0xFFE5E7EB).withOpacity(0.5),
-          width: 0.5,
-        ),
-      ),
-    ),
+    // cardTheme 配置已移除，使用默认样式以避免版本兼容性问题
+    // 在 Flutter 3.24.x 中使用 CardTheme，在 3.35.x 中使用 CardThemeData
+    // 为了兼容性，暂时使用默认卡片主题
 
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
