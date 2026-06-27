@@ -1,5 +1,9 @@
 # Project-level configuration.
 cmake_minimum_required(VERSION 3.14)
+
+# Force Visual Studio 17 2022 generator for windows-2022 environment
+set(CMAKE_GENERATOR "Visual Studio 17 2022" CACHE STRING "Generator" FORCE)
+
 project(password_manager LANGUAGES CXX)
 
 # The name of the executable created for the application. Change this to change
