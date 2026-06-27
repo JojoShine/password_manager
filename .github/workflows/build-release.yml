@@ -91,29 +91,48 @@ jobs:
       - name: Patch Flutter SDK to use VS 2022 generator
         shell: pwsh
         run: |
-          # Flutter通过vswhere.exe检测VS版本，但某些环境下检测失败
-          # 直接修补预编译snapshot中的生成器字符串，强制使用VS 2022
-          $flutterRoot = (flutter --version | Select-String "Flutter at (.+)" | ForEach-Object { $_.Matches.Groups[1].Value })
-          if (-not $flutterRoot) {
-            $flutterBin = (Get-Command flutter).Source | Split-Path -Parent
-            $flutterRoot = Split-Path $flutterBin -Parent
-          }
+          # 获取Flutter SDK路径
+          $flutterBin = (Get-Command flutter).Source | Split-Path -Parent
+          $flutterRoot = Split-Path $flutterBin -Parent
           Write-Host "Flutter SDK: $flutterRoot"
           
-          $snapshotPath = Join-Path $flutterRoot "bin\cache\flutter_tools.snapshot"
-          if (Test-Path $snapshotPath) {
-            $bytes = [System.IO.File]::ReadAllBytes($snapshotPath)
-            $content = [System.Text.Encoding]::ASCII.GetString($bytes)
-            $old = "Visual Studio 16 2019"
-            $new = "Visual Studio 17 2022"
-            $count = ([regex]::Matches($content, [regex]::Escape($old))).Count
-            Write-Host "Found $count occurrences of '$old'"
-            $content = $content.Replace($old, $new)
-            $newBytes = [System.Text.Encoding]::ASCII.GetBytes($content)
-            [System.IO.File]::WriteAllBytes($snapshotPath, $newBytes)
-            Write-Host "Patched snapshot: replaced '$old' with '$new'"
+          # 诊断：查看vswhere检测到什么
+          $vswherePath = "${env:PROGRAMFILES(X86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          if (Test-Path $vswherePath) {
+            Write-Host "=== vswhere output ==="
+            & $vswherePath -format json -products * -utf8 -latest | Write-Host
+          }
+          
+          # 修补Dart源码中的VS版本检测逻辑
+          $vsFile = Join-Path $flutterRoot "packages\flutter_tools\lib\src\windows\visual_studio.dart"
+          if (Test-Path $vsFile) {
+            $content = Get-Content $vsFile -Raw
+            # 将cmakeGenerator的switch逻辑改为始终返回VS 2022
+            $content = $content.Replace(
+              "17 => 'Visual Studio 17 2022',",
+              "17 => 'Visual Studio 17 2022',"
+            )
+            # 将default分支从VS 2019改为VS 2022
+            $content = $content.Replace(
+              "_ => 'Visual Studio 16 2019',",
+              "_ => 'Visual Studio 17 2022',"
+            )
+            Set-Content $vsFile -Value $content -NoNewline
+            Write-Host "Patched visual_studio.dart source"
           } else {
-            Write-Host "Snapshot not found at $snapshotPath"
+            Write-Host "visual_studio.dart not found at $vsFile"
+          }
+          
+          # 删除stamp文件，强制Flutter从源码重新编译snapshot
+          $stampPath = Join-Path $flutterRoot "bin\cache\flutter_tools.stamp"
+          $snapshotPath = Join-Path $flutterRoot "bin\cache\flutter_tools.snapshot"
+          if (Test-Path $stampPath) {
+            Remove-Item $stampPath -Force
+            Write-Host "Deleted flutter_tools.stamp - snapshot will be recompiled"
+          }
+          if (Test-Path $snapshotPath) {
+            Remove-Item $snapshotPath -Force
+            Write-Host "Deleted old flutter_tools.snapshot"
           }
       
       - name: Build Windows app
