@@ -23,68 +23,44 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Patch Flutter SDK (Source + Snapshot + Cache Clear)
+      - name: Create CMake wrapper to fix generator
         shell: pwsh
         run: |
-          $flutterBin = (Get-Command flutter).Source | Split-Path -Parent
-          $flutterRoot = Split-Path $flutterBin -Parent
-          Write-Host "Flutter SDK: $flutterRoot"
+          # 创建 cmake 包装脚本目录
+          $wrapperDir = "$env:TEMP\cmake_wrapper"
+          New-Item -ItemType Directory -Path $wrapperDir -Force | Out-Null
 
-          # 1. 修改源代码
-          $vsFile = Join-Path $flutterRoot "packages\flutter_tools\lib\src\windows\visual_studio.dart"
-          if (Test-Path $vsFile) {
-            Write-Host "Patching source: $vsFile"
-            $content = Get-Content $vsFile -Raw
-            $content = $content -replace 'Visual Studio 16 2019', 'Visual Studio 17 2022'
-            Set-Content $vsFile -Value $content -Encoding UTF8 -NoNewline
-            Write-Host "✓ Source patched"
-          }
+          # 创建 cmake.bat 包装脚本，自动添加 -G "Visual Studio 17 2022"
+          $cmakeBat = Join-Path $wrapperDir "cmake.bat"
+          @'
+          @echo off
+          REM 拦截 cmake 命令，强制使用 Visual Studio 17 2022
+          setlocal enabledelayedexpansion
 
-          # 2. 修改 snapshot 二进制
-          $snap = Join-Path $flutterRoot "bin\cache\flutter_tools.snapshot"
-          if (Test-Path $snap) {
-            Write-Host "Patching snapshot: $snap"
-            $bytes = [System.IO.File]::ReadAllBytes($snap)
+          set "args=%*"
+          REM 检查是否已经有 -G 参数
+          if not "!args:-G=!" == "!args!" (
+            REM 已有 -G 参数，直接传递
+            "%CMAKE_ORIGINAL%" !args!
+          ) else (
+            REM 没有 -G 参数，添加生成器
+            "%CMAKE_ORIGINAL%" -G "Visual Studio 17 2022" !args!
+          )
+          endlocal
+'@ | Set-Content -Path $cmakeBat -Encoding ASCII
 
-            # UTF-8 替换
-            $oldUtf8 = [System.Text.Encoding]::UTF8.GetBytes("Visual Studio 16 2019")
-            $newUtf8 = [System.Text.Encoding]::UTF8.GetBytes("Visual Studio 17 2022")
+          Write-Host "CMake wrapper created at: $cmakeBat"
+          Write-Host "Content:"
+          Get-Content $cmakeBat
 
-            for ($i = 0; $i -le $bytes.Length - $oldUtf8.Length; $i++) {
-              $match = $true
-              for ($j = 0; $j -lt $oldUtf8.Length; $j++) {
-                if ($bytes[$i + $j] -ne $oldUtf8[$j]) { $match = $false; break }
-              }
-              if ($match) {
-                for ($j = 0; $j -lt $newUtf8.Length; $j++) {
-                  $bytes[$i + $j] = $newUtf8[$j]
-                }
-                Write-Host "✓ Snapshot patched (UTF-8)"
-                break
-              }
-            }
+          # 设置环境变量
+          $cmakeOriginal = (Get-Command cmake).Source
+          Write-Host "Original cmake: $cmakeOriginal"
 
-            [System.IO.File]::WriteAllBytes($snap, $bytes)
-          }
+          echo "CMAKE_ORIGINAL=$cmakeOriginal" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "PATH=$wrapperDir;$env:PATH" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-          # 3. 清除缓存
-          $stamp = Join-Path $flutterRoot "bin\cache\flutter_tools.stamp"
-          $dartCache = Join-Path $flutterRoot "bin\cache\dart-sdk\.dart_tool"
-          if (Test-Path $stamp) { Remove-Item $stamp -Force; Write-Host "✓ Stamp deleted" }
-          if (Test-Path $dartCache) { Remove-Item $dartCache -Recurse -Force -ErrorAction SilentlyContinue; Write-Host "✓ Dart cache cleared" }
-
-          # 4. 清除 ephemeral 缓存
-          if (Test-Path "windows\flutter\ephemeral") {
-            Remove-Item "windows\flutter\ephemeral" -Recurse -Force -ErrorAction SilentlyContinue
-            Write-Host "✓ Ephemeral cleared"
-          }
-
-          Write-Host "=== Patch complete ==="
-
-      - name: Reconfigure Flutter
-        run: |
-          flutter clean
-          flutter pub get
+          Write-Host "PATH updated to prioritize wrapper"
 
       - name: Build Windows app
         run: flutter build windows --release
