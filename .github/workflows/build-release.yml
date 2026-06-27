@@ -69,17 +69,31 @@ jobs:
         with:
           persist-credentials: false  # 不保留凭证
       
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: 'stable'
-          cache: false
+      - name: Setup Flutter (manual install)
+        shell: pwsh
+        run: |
+          $version = "${{ env.FLUTTER_VERSION }}"
+          $flutterUrl = "https://storage.googleapis.com/flutter_infra_release/releases/stable/windows/flutter_windows_${version}-stable.zip"
+          $flutterZip = "$env:TEMP\flutter.zip"
+          $flutterDir = "C:\flutter"
+          
+          Write-Host "Downloading Flutter $version from $flutterUrl"
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+          Invoke-WebRequest -Uri $flutterUrl -OutFile $flutterZip -UseBasicParsing
+          
+          Write-Host "Extracting to $flutterDir"
+          Expand-Archive -Path $flutterZip -DestinationPath "C:\" -Force
+          
+          # Add to PATH for current and future steps
+          $flutterBin = "$flutterDir\flutter\bin"
+          Add-Content $env:GITHUB_PATH $flutterBin
+          Write-Host "Flutter installed at $flutterBin"
       
-      - name: Verify Flutter version
+      - name: Initialize and verify Flutter
         shell: pwsh
         run: |
           flutter --version
+          flutter precache --windows
           $version = (flutter --version | Select-String "Flutter (\S+)" | ForEach-Object { $_.Matches.Groups[1].Value })
           $expected = "${{ env.FLUTTER_VERSION }}"
           Write-Host "Installed: $version, Expected: $expected"
@@ -87,6 +101,7 @@ jobs:
             Write-Error "Flutter version mismatch! Expected $expected but got $version"
             exit 1
           }
+          Write-Host "Flutter $version verified OK"
       
       - name: Install dependencies
         run: flutter pub get
