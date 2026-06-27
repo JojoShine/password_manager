@@ -26,7 +26,7 @@ jobs:
       - name: 设置Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.0'
+          flutter-version: '3.24.0'
           channel: 'stable'
           
       - name: 启用Windows桌面支持
@@ -65,7 +65,7 @@ jobs:
       - name: 设置Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.0'
+          flutter-version: '3.24.0'
           channel: 'stable'
           
       - name: 启用macOS桌面支持
