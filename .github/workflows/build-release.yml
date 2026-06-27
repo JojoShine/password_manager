@@ -32,6 +32,31 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Patch Flutter generated config
+        shell: pwsh
+        run: |
+          $configFile = "windows\flutter\ephemeral\generated_config.cmake"
+          if (Test-Path $configFile) {
+            Write-Host "Patching: $configFile"
+            $content = Get-Content $configFile -Raw -Encoding UTF8
+            $oldContent = $content
+
+            # 替换 Visual Studio 16 2019 为 Visual Studio 17 2022
+            $content = $content -replace '"Visual Studio 16 2019"', '"Visual Studio 17 2022"'
+
+            if ($content -ne $oldContent) {
+              Set-Content $configFile -Value $content -Encoding UTF8 -NoNewline
+              Write-Host "✓ Config patched successfully"
+              Write-Host "Content preview:"
+              Get-Content $configFile -Raw | Select-String "Visual Studio" -Context 2
+            } else {
+              Write-Host "No match found, showing config content:"
+              Get-Content $configFile | Select-String -Pattern "Visual Studio|CMAKE|GENERATOR"
+            }
+          } else {
+            Write-Host "Config file not found at: $configFile"
+          }
+
       - name: Build Windows app
         run: flutter build windows --release -v
 
