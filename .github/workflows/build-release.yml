@@ -20,113 +20,27 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
 
-      # 必须在任何flutter命令之前修补！
-      - name: Patch Flutter SDK for latest VS (MUST BE FIRST)
+      - name: Setup CMake Generator
         shell: pwsh
         run: |
-          $flutterBin = (Get-Command flutter).Source | Split-Path -Parent
-          $flutterRoot = Split-Path $flutterBin -Parent
-          Write-Host "Flutter SDK: $flutterRoot"
+          echo "CMAKE_GENERATOR=Visual Studio 17 2022" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "CMAKE_GENERATOR set to: Visual Studio 17 2022"
 
-          # 检测VS版本
-          $vswhere = "${env:PROGRAMFILES(X86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-          $vsVersion = "Visual Studio 17 2022"
-          if (Test-Path $vswhere) {
-            $vsJson = & $vswhere -format json -products * -utf8 -latest | ConvertFrom-Json
-            if ($vsJson -and $vsJson.catalog) {
-              $prodName = $vsJson.catalog.productName
-              if ($prodName -match "2026") {
-                $vsVersion = "Visual Studio 17 2026"
-              }
-              Write-Host "Detected: $prodName -> using $vsVersion"
-            }
-          }
-
-          # 1. 修补源码：替换所有旧版本为检测到的版本
-          $vsFile = Join-Path $flutterRoot "packages\flutter_tools\lib\src\windows\visual_studio.dart"
-          if (Test-Path $vsFile) {
-            $content = [System.IO.File]::ReadAllText($vsFile, [System.Text.Encoding]::UTF8)
-            $oldVersions = @("Visual Studio 16 2019", "Visual Studio 15 2017")
-            $patched = $false
-
-            foreach ($old in $oldVersions) {
-              if ($content -match [regex]::Escape($old)) {
-                Write-Host "Replacing: '$old' -> '$vsVersion'"
-                $content = $content -replace [regex]::Escape($old), $vsVersion
-                $patched = $true
-              }
-            }
-
-            if ($patched) {
-              [System.IO.File]::WriteAllText($vsFile, $content, (New-Object System.Text.UTF8Encoding $false))
-              Write-Host "Source file patched successfully"
-            }
-          }
-
-          # 2. 修补snapshot二进制
-          $snap = Join-Path $flutterRoot "bin\cache\flutter_tools.snapshot"
-          if (Test-Path $snap) {
-            $bytes = [System.IO.File]::ReadAllBytes($snap)
-            Write-Host "Snapshot: $($bytes.Length) bytes"
-
-            $oldVersions = @("Visual Studio 16 2019", "Visual Studio 15 2017")
-            foreach ($oldVer in $oldVersions) {
-              # UTF-8
-              $oB = [System.Text.Encoding]::UTF8.GetBytes($oldVer)
-              $nB = [System.Text.Encoding]::UTF8.GetBytes($vsVersion)
-              for ($i = 0; $i -le $bytes.Length - $oB.Length; $i++) {
-                $m = $true
-                for ($j = 0; $j -lt $oB.Length; $j++) {
-                  if ($bytes[$i+$j] -ne $oB[$j]) { $m = $false; break }
-                }
-                if ($m) {
-                  for ($j = 0; $j -lt $nB.Length; $j++) { $bytes[$i+$j] = $nB[$j] }
-                  Write-Host "Snapshot patched: $oldVer -> $vsVersion (UTF-8 at $i)"
-                  break
-                }
-              }
-
-              # UTF-16LE
-              $oB = [System.Text.Encoding]::Unicode.GetBytes($oldVer)
-              $nB = [System.Text.Encoding]::Unicode.GetBytes($vsVersion)
-              for ($i = 0; $i -le $bytes.Length - $oB.Length; $i++) {
-                $m = $true
-                for ($j = 0; $j -lt $oB.Length; $j++) {
-                  if ($bytes[$i+$j] -ne $oB[$j]) { $m = $false; break }
-                }
-                if ($m) {
-                  for ($j = 0; $j -lt $nB.Length; $j++) { $bytes[$i+$j] = $nB[$j] }
-                  Write-Host "Snapshot patched: $oldVer -> $vsVersion (UTF-16LE at $i)"
-                  break
-                }
-              }
-            }
-            [System.IO.File]::WriteAllBytes($snap, $bytes)
-            Write-Host "Snapshot file saved"
-          }
-
-          # 3. 删除stamp
-          $stamp = Join-Path $flutterRoot "bin\cache\flutter_tools.stamp"
-          if (Test-Path $stamp) { Remove-Item $stamp -Force; Write-Host "Stamp deleted" }
-
-          Write-Host "=== Patch complete ==="
-      
-      # 以下才开始运行flutter命令
       - name: Enable Windows desktop
         run: flutter config --enable-windows-desktop
-      
+
       - name: Install dependencies
         run: flutter pub get
-      
+
       - name: Build Windows app
         run: flutter build windows --release -v
-      
+
       - name: Create Windows zip
         uses: vimtor/action-zip@v1
         with:
           files: build/windows/x64/runner/Release/
           dest: password_manager_windows.zip
-      
+
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
@@ -138,25 +52,25 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
-      
+
       - name: Install dependencies
         run: flutter pub get
-      
+
       - name: Build macOS app
         run: flutter build macos --release
-      
+
       - name: Create DMG
         run: |
           cd build/macos/Build/Products/Release
           hdiutil create -volname "Password Manager" \
             -srcfolder "password_manager.app" \
             -ov -format UDZO password_manager.dmg
-      
+
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
@@ -169,25 +83,25 @@ jobs:
     needs: [build-windows, build-macos]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
-    
+
     permissions:
       contents: write
-    
+
     steps:
       - name: Download Windows artifact
         uses: actions/download-artifact@v4
         with:
           name: windows-release
-      
+
       - name: Download macOS artifact
         uses: actions/download-artifact@v4
         with:
           name: macos-release
-      
+
       - name: Get tag name
         id: tag_name
         run: echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-      
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
