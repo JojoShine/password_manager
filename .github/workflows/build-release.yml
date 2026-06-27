@@ -60,7 +60,7 @@ jobs:
 
   build-windows:
     name: Build Windows App
-    runs-on: windows-latest
+    runs-on: windows-2022
     env:
       CMAKE_GENERATOR: "Visual Studio 17 2022"
     
@@ -86,6 +86,9 @@ jobs:
       
       - name: Enable Windows desktop support
         run: flutter config --enable-windows-desktop
+      
+      - name: Clean Windows build cache
+        run: if (Test-Path build) { Remove-Item -Recurse -Force build }
       
       - name: Build Windows app
         run: flutter build windows --release
