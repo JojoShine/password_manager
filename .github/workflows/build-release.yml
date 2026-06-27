@@ -1,43 +1,138 @@
-name: Build and Release Flutter App
-
-# 添加权限声明
-permissions:
-  contents: read  # 允许读取代码仓库
+name: Build Desktop Apps
 
 on:
   push:
-    branches: [ main, master ]
     tags:
       - 'v*'
-  pull_request:
-    branches: [ main, master ]
-  workflow_dispatch:  # 允许手动触发
+  workflow_dispatch:
 
 env:
-  FLUTTER_VERSION: '3.35.4'
+  FLUTTER_VERSION: '3.22.0'
 
 jobs:
-  build-macos:
-    name: Build macOS App
-    runs-on: macos-latest
-    
+  build-windows:
+    runs-on: windows-2022
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false  # 不保留凭证
+      - uses: actions/checkout@v4
       
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
-          cache: false
       
-      - name: Verify Flutter installation
+      - name: Verify Flutter version
+        shell: pwsh
         run: |
-          flutter doctor -v
           flutter --version
+          $ver = (flutter --version | Select-String "Flutter (\S+)" | ForEach-Object { $_.Matches.Groups[1].Value })
+          Write-Host "Flutter version: $ver"
+      
+      - name: Patch Flutter SDK for VS 2022
+        shell: pwsh
+        run: |
+          $flutterBin = (Get-Command flutter).Source | Split-Path -Parent
+          $flutterRoot = Split-Path $flutterBin -Parent
+          Write-Host "Flutter SDK: $flutterRoot"
+          
+          # 诊断: vswhere输出
+          $vswherePath = "${env:PROGRAMFILES(X86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          if (Test-Path $vswherePath) {
+            Write-Host "=== vswhere output ==="
+            & $vswherePath -format json -products * -utf8 -latest
+          }
+          
+          # 修补Dart源码: 将default生成器从VS 2019改为VS 2022
+          $vsFile = Join-Path $flutterRoot "packages\flutter_tools\lib\src\windows\visual_studio.dart"
+          if (Test-Path $vsFile) {
+            $content = [System.IO.File]::ReadAllText($vsFile, [System.Text.Encoding]::UTF8)
+            $oldStr = "Visual Studio 16 2019"
+            $count = ([regex]::Matches($content, [regex]::Escape($oldStr))).Count
+            Write-Host "Source: found $count occurrences of '$oldStr'"
+            if ($count -gt 0) {
+              $content = $content.Replace($oldStr, "Visual Studio 17 2022")
+              [System.IO.File]::WriteAllText($vsFile, $content, (New-Object System.Text.UTF8Encoding $false))
+              Write-Host "Source patched OK"
+            }
+          }
+          
+          # 同时修补snapshot二进制(尝试UTF-8和UTF-16LE)
+          $snapshotPath = Join-Path $flutterRoot "bin\cache\flutter_tools.snapshot"
+          if (Test-Path $snapshotPath) {
+            $bytes = [System.IO.File]::ReadAllBytes($snapshotPath)
+            Write-Host "Snapshot size: $($bytes.Length) bytes"
+            $patched = $false
+            
+            # UTF-8
+            $oldB = [System.Text.Encoding]::UTF8.GetBytes("Visual Studio 16 2019")
+            $newB = [System.Text.Encoding]::UTF8.GetBytes("Visual Studio 17 2022")
+            for ($i = 0; $i -le $bytes.Length - $oldB.Length; $i++) {
+              $m = $true
+              for ($j = 0; $j -lt $oldB.Length; $j++) { if ($bytes[$i+$j] -ne $oldB[$j]) { $m=$false; break } }
+              if ($m) {
+                for ($j = 0; $j -lt $newB.Length; $j++) { $bytes[$i+$j] = $newB[$j] }
+                Write-Host "Snapshot patched (UTF-8) at offset $i"
+                $patched = $true; break
+              }
+            }
+            
+            # UTF-16LE
+            if (-not $patched) {
+              $oldB = [System.Text.Encoding]::Unicode.GetBytes("Visual Studio 16 2019")
+              $newB = [System.Text.Encoding]::Unicode.GetBytes("Visual Studio 17 2022")
+              for ($i = 0; $i -le $bytes.Length - $oldB.Length; $i++) {
+                $m = $true
+                for ($j = 0; $j -lt $oldB.Length; $j++) { if ($bytes[$i+$j] -ne $oldB[$j]) { $m=$false; break } }
+                if ($m) {
+                  for ($j = 0; $j -lt $newB.Length; $j++) { $bytes[$i+$j] = $newB[$j] }
+                  Write-Host "Snapshot patched (UTF-16LE) at offset $i"
+                  $patched = $true; break
+                }
+              }
+            }
+            
+            if ($patched) {
+              [System.IO.File]::WriteAllBytes($snapshotPath, $bytes)
+              Write-Host "Snapshot written OK"
+            } else {
+              Write-Host "WARNING: string not found in snapshot"
+            }
+          }
+          
+          # 删除stamp强制重编译
+          $stampPath = Join-Path $flutterRoot "bin\cache\flutter_tools.stamp"
+          if (Test-Path $stampPath) { Remove-Item $stampPath -Force; Write-Host "Stamp deleted" }
+      
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+      
+      - name: Install dependencies
+        run: flutter pub get
+      
+      - name: Build Windows app
+        run: flutter build windows --release
+      
+      - name: Create Windows zip
+        uses: vimtor/action-zip@v1
+        with:
+          files: build/windows/x64/runner/Release/
+          dest: password_manager_windows.zip
+      
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
+          path: password_manager_windows.zip
+          retention-days: 30
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: 'stable'
       
       - name: Install dependencies
         run: flutter pub get
@@ -45,7 +140,7 @@ jobs:
       - name: Build macOS app
         run: flutter build macos --release
       
-      - name: Create DMG package
+      - name: Create DMG
         run: |
           cd build/macos/Build/Products/Release
           hdiutil create -volname "Password Manager" \
@@ -55,196 +150,29 @@ jobs:
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
         with:
-          name: password-manager-macos
+          name: macos-release
           path: build/macos/Build/Products/Release/password_manager.dmg
-          retention-days: 30
-
-  build-windows:
-    name: Build Windows App
-    runs-on: windows-2022
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false  # 不保留凭证
-      
-      - name: Setup Flutter (manual install)
-        shell: pwsh
-        run: |
-          $version = "${{ env.FLUTTER_VERSION }}"
-          $flutterUrl = "https://storage.googleapis.com/flutter_infra_release/releases/stable/windows/flutter_windows_${version}-stable.zip"
-          $flutterZip = "$env:TEMP\flutter.zip"
-          $flutterDir = "C:\flutter"
-          
-          Write-Host "Downloading Flutter $version from $flutterUrl"
-          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-          Invoke-WebRequest -Uri $flutterUrl -OutFile $flutterZip -UseBasicParsing
-          
-          Write-Host "Extracting to $flutterDir"
-          Expand-Archive -Path $flutterZip -DestinationPath "C:\" -Force
-          
-          # Add to PATH for current and future steps
-          $flutterBin = "$flutterDir\flutter\bin"
-          Add-Content $env:GITHUB_PATH $flutterBin
-          Write-Host "Flutter installed at $flutterBin"
-      
-      - name: Initialize and verify Flutter
-        shell: pwsh
-        run: |
-          flutter --version
-          flutter precache --windows
-          $version = (flutter --version | Select-String "Flutter (\S+)" | ForEach-Object { $_.Matches.Groups[1].Value })
-          $expected = "${{ env.FLUTTER_VERSION }}"
-          Write-Host "Installed: $version, Expected: $expected"
-          if ($version -ne $expected) {
-            Write-Error "Flutter version mismatch! Expected $expected but got $version"
-            exit 1
-          }
-          Write-Host "Flutter $version verified OK"
-      
-      - name: Install dependencies
-        run: flutter pub get
-      
-      - name: Enable Windows desktop support
-        run: flutter config --enable-windows-desktop
-      
-      - name: Clean Windows build cache
-        run: if (Test-Path build) { Remove-Item -Recurse -Force build }
-      
-      - name: Patch Flutter SDK to use VS 2022 generator
-        shell: pwsh
-        run: |
-          $flutterBin = (Get-Command flutter).Source | Split-Path -Parent
-          $flutterRoot = Split-Path $flutterBin -Parent
-          Write-Host "Flutter SDK: $flutterRoot"
-          Write-Host "Flutter version:"
-          flutter --version
-          
-          # 诊断: vswhere输出
-          $vswherePath = "${env:PROGRAMFILES(X86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-          if (Test-Path $vswherePath) {
-            Write-Host "=== vswhere output ==="
-            & $vswherePath -format json -products * -utf8 -latest
-          } else {
-            Write-Host "vswhere.exe not found!"
-          }
-          
-          # === 策略1: 修补Dart源码 ===
-          $vsFile = Join-Path $flutterRoot "packages\flutter_tools\lib\src\windows\visual_studio.dart"
-          if (Test-Path $vsFile) {
-            $content = [System.IO.File]::ReadAllText($vsFile, [System.Text.Encoding]::UTF8)
-            $oldStr = "Visual Studio 16 2019"
-            $newStr = "Visual Studio 17 2022"
-            $count = ([regex]::Matches($content, [regex]::Escape($oldStr))).Count
-            Write-Host "Source: found $count occurrences of '$oldStr'"
-            if ($count -gt 0) {
-              $content = $content.Replace($oldStr, $newStr)
-              [System.IO.File]::WriteAllText($vsFile, $content, (New-Object System.Text.UTF8Encoding $false))
-              Write-Host "Source patched successfully"
-            }
-          } else {
-            Write-Host "visual_studio.dart not found at $vsFile"
-          }
-          
-          # === 策略2: 同时修补snapshot二进制 ===
-          $snapshotPath = Join-Path $flutterRoot "bin\cache\flutter_tools.snapshot"
-          if (Test-Path $snapshotPath) {
-            $bytes = [System.IO.File]::ReadAllBytes($snapshotPath)
-            Write-Host "Snapshot size: $($bytes.Length) bytes"
-            $patched = $false
-            
-            # 尝试UTF-8编码
-            $oldBytes = [System.Text.Encoding]::UTF8.GetBytes("Visual Studio 16 2019")
-            $newBytes = [System.Text.Encoding]::UTF8.GetBytes("Visual Studio 17 2022")
-            $found = $true
-            for ($i = 0; $i -le $bytes.Length - $oldBytes.Length; $i++) {
-              $match = $true
-              for ($j = 0; $j -lt $oldBytes.Length; $j++) {
-                if ($bytes[$i + $j] -ne $oldBytes[$j]) { $match = $false; break }
-              }
-              if ($match) {
-                for ($j = 0; $j -lt $newBytes.Length; $j++) {
-                  $bytes[$i + $j] = $newBytes[$j]
-                }
-                Write-Host "Snapshot patched (UTF-8) at offset $i"
-                $patched = $true
-                break
-              }
-            }
-            
-            # 尝试UTF-16LE编码
-            if (-not $patched) {
-              $oldBytes = [System.Text.Encoding]::Unicode.GetBytes("Visual Studio 16 2019")
-              $newBytes = [System.Text.Encoding]::Unicode.GetBytes("Visual Studio 17 2022")
-              for ($i = 0; $i -le $bytes.Length - $oldBytes.Length; $i++) {
-                $match = $true
-                for ($j = 0; $j -lt $oldBytes.Length; $j++) {
-                  if ($bytes[$i + $j] -ne $oldBytes[$j]) { $match = $false; break }
-                }
-                if ($match) {
-                  for ($j = 0; $j -lt $newBytes.Length; $j++) {
-                    $bytes[$i + $j] = $newBytes[$j]
-                  }
-                  Write-Host "Snapshot patched (UTF-16LE) at offset $i"
-                  $patched = $true
-                  break
-                }
-              }
-            }
-            
-            if ($patched) {
-              [System.IO.File]::WriteAllBytes($snapshotPath, $bytes)
-              Write-Host "Snapshot written successfully"
-            } else {
-              Write-Host "WARNING: 'Visual Studio 16 2019' not found in snapshot in any encoding"
-            }
-          } else {
-            Write-Host "Snapshot not found (will be compiled from source)"
-          }
-          
-          # 删除stamp文件确保snapshot重编译
-          $stampPath = Join-Path $flutterRoot "bin\cache\flutter_tools.stamp"
-          if (Test-Path $stampPath) {
-            Remove-Item $stampPath -Force
-            Write-Host "Deleted stamp file"
-          }
-      
-      - name: Build Windows app
-        run: flutter build windows --release
-      
-      - name: Create ZIP package
-        uses: vimtor/action-zip@v1
-        with:
-          files: build/windows/x64/runner/Release/
-          dest: password_manager_windows.zip
-      
-      - name: Upload Windows artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: password-manager-windows
-          path: password_manager_windows.zip
           retention-days: 30
 
   release:
     name: Create Release
-    needs: [build-macos, build-windows]
+    needs: [build-windows, build-macos]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     
     permissions:
-      contents: write  # 需要写入权限来创建 Release
+      contents: write
     
     steps:
-      - name: Download macOS artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: password-manager-macos
-      
       - name: Download Windows artifact
         uses: actions/download-artifact@v4
         with:
-          name: password-manager-windows
+          name: windows-release
+      
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-release
       
       - name: Get tag name
         id: tag_name
@@ -258,7 +186,7 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            password_manager.dmg
             password_manager_windows.zip
+            password_manager.dmg
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
