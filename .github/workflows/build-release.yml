@@ -23,6 +23,21 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Patch Flutter SDK to use VS 2022
+        shell: pwsh
+        run: |
+          $flutterBin = (Get-Command flutter).Source | Split-Path -Parent
+          $flutterRoot = Split-Path $flutterBin -Parent
+          Write-Host "Flutter SDK: $flutterRoot"
+
+          # 修改 visual_studio.dart 中的生成器设置
+          $vsFile = Join-Path $flutterRoot "packages\flutter_tools\lib\src\windows\visual_studio.dart"
+          if (Test-Path $vsFile) {
+            Write-Host "Found visual_studio.dart: $vsFile"
+            (Get-Content $vsFile -Raw) -replace 'Visual Studio 16 2019', 'Visual Studio 17 2022' | Set-Content $vsFile
+            Write-Host "✓ Patched visual_studio.dart"
+          }
+
       - name: Build Windows app
         run: flutter build windows --release
 
