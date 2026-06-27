@@ -20,88 +20,83 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
       
-      - name: Verify Flutter version
-        shell: pwsh
-        run: |
-          flutter --version
-          $ver = (flutter --version | Select-String "Flutter (\S+)" | ForEach-Object { $_.Matches.Groups[1].Value })
-          Write-Host "Flutter version: $ver"
-      
-      - name: Patch Flutter SDK for VS 2022
+      # 必须在任何flutter命令之前修补！
+      - name: Patch Flutter SDK for VS 2022 (MUST BE FIRST)
         shell: pwsh
         run: |
           $flutterBin = (Get-Command flutter).Source | Split-Path -Parent
           $flutterRoot = Split-Path $flutterBin -Parent
           Write-Host "Flutter SDK: $flutterRoot"
           
-          # 诊断: vswhere输出
-          $vswherePath = "${env:PROGRAMFILES(X86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-          if (Test-Path $vswherePath) {
-            Write-Host "=== vswhere output ==="
-            & $vswherePath -format json -products * -utf8 -latest
+          # 诊断: vswhere
+          $vswhere = "${env:PROGRAMFILES(X86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          if (Test-Path $vswhere) {
+            Write-Host "=== vswhere ==="
+            & $vswhere -format json -products * -utf8 -latest
           }
           
-          # 修补Dart源码: 将default生成器从VS 2019改为VS 2022
+          # 1. 修补源码
           $vsFile = Join-Path $flutterRoot "packages\flutter_tools\lib\src\windows\visual_studio.dart"
           if (Test-Path $vsFile) {
             $content = [System.IO.File]::ReadAllText($vsFile, [System.Text.Encoding]::UTF8)
-            $oldStr = "Visual Studio 16 2019"
-            $count = ([regex]::Matches($content, [regex]::Escape($oldStr))).Count
-            Write-Host "Source: found $count occurrences of '$oldStr'"
+            $old = "Visual Studio 16 2019"
+            $count = ([regex]::Matches($content, [regex]::Escape($old))).Count
+            Write-Host "Source: found '$old' $count times"
             if ($count -gt 0) {
-              $content = $content.Replace($oldStr, "Visual Studio 17 2022")
+              $content = $content.Replace($old, "Visual Studio 17 2022")
               [System.IO.File]::WriteAllText($vsFile, $content, (New-Object System.Text.UTF8Encoding $false))
-              Write-Host "Source patched OK"
-            }
-          }
-          
-          # 同时修补snapshot二进制(尝试UTF-8和UTF-16LE)
-          $snapshotPath = Join-Path $flutterRoot "bin\cache\flutter_tools.snapshot"
-          if (Test-Path $snapshotPath) {
-            $bytes = [System.IO.File]::ReadAllBytes($snapshotPath)
-            Write-Host "Snapshot size: $($bytes.Length) bytes"
-            $patched = $false
-            
-            # UTF-8
-            $oldB = [System.Text.Encoding]::UTF8.GetBytes("Visual Studio 16 2019")
-            $newB = [System.Text.Encoding]::UTF8.GetBytes("Visual Studio 17 2022")
-            for ($i = 0; $i -le $bytes.Length - $oldB.Length; $i++) {
-              $m = $true
-              for ($j = 0; $j -lt $oldB.Length; $j++) { if ($bytes[$i+$j] -ne $oldB[$j]) { $m=$false; break } }
-              if ($m) {
-                for ($j = 0; $j -lt $newB.Length; $j++) { $bytes[$i+$j] = $newB[$j] }
-                Write-Host "Snapshot patched (UTF-8) at offset $i"
-                $patched = $true; break
-              }
-            }
-            
-            # UTF-16LE
-            if (-not $patched) {
-              $oldB = [System.Text.Encoding]::Unicode.GetBytes("Visual Studio 16 2019")
-              $newB = [System.Text.Encoding]::Unicode.GetBytes("Visual Studio 17 2022")
-              for ($i = 0; $i -le $bytes.Length - $oldB.Length; $i++) {
-                $m = $true
-                for ($j = 0; $j -lt $oldB.Length; $j++) { if ($bytes[$i+$j] -ne $oldB[$j]) { $m=$false; break } }
-                if ($m) {
-                  for ($j = 0; $j -lt $newB.Length; $j++) { $bytes[$i+$j] = $newB[$j] }
-                  Write-Host "Snapshot patched (UTF-16LE) at offset $i"
-                  $patched = $true; break
+              # 验证写入
+              $verify = [System.IO.File]::ReadAllText($vsFile, [System.Text.Encoding]::UTF8)
+              $newCount = ([regex]::Matches($verify, "Visual Studio 17 2022")).Count
+              Write-Host "Source patched. Verify: 'Visual Studio 17 2022' appears $newCount times"
+            } else {
+              Write-Host "ERROR: String not found in source!"
+              # 打印相关行帮助诊断
+              $lines = Get-Content $vsFile
+              for ($i = 0; $i -lt $lines.Count; $i++) {
+                if ($lines[$i] -match "cmakeGenerator|Visual Studio|_majorVersion") {
+                  Write-Host "Line $($i+1): $($lines[$i])"
                 }
               }
             }
-            
-            if ($patched) {
-              [System.IO.File]::WriteAllBytes($snapshotPath, $bytes)
-              Write-Host "Snapshot written OK"
-            } else {
-              Write-Host "WARNING: string not found in snapshot"
-            }
+          } else {
+            Write-Host "ERROR: visual_studio.dart not found!"
           }
           
-          # 删除stamp强制重编译
-          $stampPath = Join-Path $flutterRoot "bin\cache\flutter_tools.stamp"
-          if (Test-Path $stampPath) { Remove-Item $stampPath -Force; Write-Host "Stamp deleted" }
+          # 2. 修补snapshot二进制
+          $snap = Join-Path $flutterRoot "bin\cache\flutter_tools.snapshot"
+          if (Test-Path $snap) {
+            $bytes = [System.IO.File]::ReadAllBytes($snap)
+            Write-Host "Snapshot: $($bytes.Length) bytes"
+            $ok = $false
+            
+            # UTF-8
+            $oB = [System.Text.Encoding]::UTF8.GetBytes("Visual Studio 16 2019")
+            $nB = [System.Text.Encoding]::UTF8.GetBytes("Visual Studio 17 2022")
+            for ($i = 0; $i -le $bytes.Length - $oB.Length; $i++) {
+              $m = $true; for ($j = 0; $j -lt $oB.Length; $j++) { if ($bytes[$i+$j] -ne $oB[$j]) { $m=$false; break } }
+              if ($m) { for ($j = 0; $j -lt $nB.Length; $j++) { $bytes[$i+$j] = $nB[$j] }; Write-Host "Snapshot patched UTF-8 at $i"; $ok=$true; break }
+            }
+            # UTF-16LE
+            if (-not $ok) {
+              $oB = [System.Text.Encoding]::Unicode.GetBytes("Visual Studio 16 2019")
+              $nB = [System.Text.Encoding]::Unicode.GetBytes("Visual Studio 17 2022")
+              for ($i = 0; $i -le $bytes.Length - $oB.Length; $i++) {
+                $m = $true; for ($j = 0; $j -lt $oB.Length; $j++) { if ($bytes[$i+$j] -ne $oB[$j]) { $m=$false; break } }
+                if ($m) { for ($j = 0; $j -lt $nB.Length; $j++) { $bytes[$i+$j] = $nB[$j] }; Write-Host "Snapshot patched UTF-16LE at $i"; $ok=$true; break }
+              }
+            }
+            if ($ok) { [System.IO.File]::WriteAllBytes($snap, $bytes); Write-Host "Snapshot saved" }
+            else { Write-Host "WARNING: string not found in snapshot binary" }
+          }
+          
+          # 3. 删除stamp (在源码已修补后)
+          $stamp = Join-Path $flutterRoot "bin\cache\flutter_tools.stamp"
+          if (Test-Path $stamp) { Remove-Item $stamp -Force; Write-Host "Stamp deleted" }
+          
+          Write-Host "=== Patch complete ==="
       
+      # 以下才开始运行flutter命令
       - name: Enable Windows desktop
         run: flutter config --enable-windows-desktop
       
@@ -109,7 +104,7 @@ jobs:
         run: flutter pub get
       
       - name: Build Windows app
-        run: flutter build windows --release
+        run: flutter build windows --release -v
       
       - name: Create Windows zip
         uses: vimtor/action-zip@v1
