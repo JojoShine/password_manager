@@ -32,6 +32,7 @@ jobs:
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
+          cache: false
       
       - name: Verify Flutter installation
         run: |
@@ -73,11 +74,19 @@ jobs:
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
+          cache: false
       
-      - name: Verify Flutter installation
+      - name: Verify Flutter version
+        shell: pwsh
         run: |
-          flutter doctor -v
           flutter --version
+          $version = (flutter --version | Select-String "Flutter (\S+)" | ForEach-Object { $_.Matches.Groups[1].Value })
+          $expected = "${{ env.FLUTTER_VERSION }}"
+          Write-Host "Installed: $version, Expected: $expected"
+          if ($version -ne $expected) {
+            Write-Error "Flutter version mismatch! Expected $expected but got $version"
+            exit 1
+          }
       
       - name: Install dependencies
         run: flutter pub get
