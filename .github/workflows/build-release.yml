@@ -90,37 +90,33 @@ jobs:
       - name: Clean Windows build cache
         run: if (Test-Path build) { Remove-Item -Recurse -Force build }
       
-      - name: Patch Flutter Windows build generator
+      - name: Create cmake wrapper for VS 2022
         shell: pwsh
         run: |
-          # 获取Flutter SDK路径
-          $flutterRoot = (flutter --version | Select-String "Flutter at (.+)" | ForEach-Object { $_.Matches.Groups[1].Value })
-          if (-not $flutterRoot) {
-            # 备用方案：从PATH推断
-            $flutterBin = (Get-Command flutter).Source | Split-Path -Parent
-            $flutterRoot = Split-Path $flutterBin -Parent
-          }
-          Write-Host "Flutter SDK path: $flutterRoot"
+          # 找到真实的 cmake.exe
+          $cmakePath = (Get-Command cmake).Source
+          $cmakeDir = Split-Path $cmakePath -Parent
+          Write-Host "cmake location: $cmakePath"
           
-          # 查找并修补Windows构建文件中的VS 2019引用
-          $dartFiles = Get-ChildItem -Path "$flutterRoot/packages/flutter_tools" -Recurse -Filter "*.dart" | Select-String -Pattern "Visual Studio 16 2019" -List | ForEach-Object { $_.Path }
-          foreach ($file in $dartFiles) {
-            Write-Host "Patching: $file"
-            (Get-Content $file -Raw) -replace 'Visual Studio 16 2019', 'Visual Studio 17 2022' | Set-Content $file -NoNewline
-          }
+          # 创建wrapper目录
+          $wrapperDir = "C:\cmake-wrapper"
+          New-Item -ItemType Directory -Force -Path $wrapperDir | Out-Null
           
-          if ($dartFiles.Count -eq 0) {
-            Write-Host "No files found with VS 2019 reference, checking all Dart files..."
-            Get-ChildItem -Path "$flutterRoot" -Recurse -Filter "*.dart" | Select-String -Pattern "Visual Studio 16" -List | ForEach-Object {
-              Write-Host "Patching: $($_.Path)"
-              (Get-Content $_.Path -Raw) -replace 'Visual Studio 16 2019', 'Visual Studio 17 2022' | Set-Content $_.Path -NoNewline
-            }
-          }
+          # 将真实cmake复制到wrapper目录并重命名
+          Copy-Item $cmakePath "$wrapperDir\cmake-real.exe"
           
-          Write-Host "Patch complete"
+          # 创建wrapper脚本，替换VS 2019为VS 2022
+          $wrapperContent = "@echo off`r`nsetlocal EnableDelayedExpansion`r`nset `"ARGS=%*`"`r`nset `"ARGS=!ARGS:Visual Studio 16 2019=Visual Studio 17 2022!`"`r`n`"%~dp0cmake-real.exe`" %ARGS%"
+          Set-Content -Path "$wrapperDir\cmake.bat" -Value $wrapperContent -Encoding ASCII
+          
+          # 将wrapper目录加到PATH最前面
+          "CMAKE_WRAPPER=$wrapperDir" | Out-File -FilePath $env:GITHUB_ENV -Append
+          Write-Host "cmake wrapper created at $wrapperDir"
       
       - name: Build Windows app
-        run: flutter build windows --release
+        run: |
+          $env:PATH = "${{ env.CMAKE_WRAPPER }};" + $env:PATH
+          flutter build windows --release
       
       - name: Create ZIP package
         uses: vimtor/action-zip@v1
