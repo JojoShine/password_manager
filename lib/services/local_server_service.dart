@@ -31,26 +31,65 @@ class LocalServerService {
   Future<bool> startServer() async {
     if (_isRunning) return true;
 
+    // 固定端口列表，按优先级排序，浏览器扩展会优先扫描这些端口
+    const preferredPorts = [5000, 5001, 5002, 5003, 5004, 5005];
+
     try {
-      // 生成随机端口和安全token
-      _serverPort = _generateRandomPort();
-      _serverToken = _generateSecureToken();
+      // 优先使用上次成功的端口（如果有的话）
+      final prefs = await SharedPreferences.getInstance();
+      final lastPort = prefs.getInt('last_server_port');
 
-      // debugPrint('尝试启动本地服务器，端口: $_serverPort');
+      // 构建端口尝试列表：上次成功端口 > 固定端口列表 > 随机端口
+      final portsToTry = <int>[];
+      if (lastPort != null && lastPort >= 5000 && lastPort < 6000) {
+        portsToTry.add(lastPort);
+      }
+      for (final port in preferredPorts) {
+        if (!portsToTry.contains(port)) {
+          portsToTry.add(port);
+        }
+      }
 
-      // 启动HTTP服务器
-      _server = await HttpServer.bind(
-        InternetAddress.loopbackIPv4,
-        _serverPort!,
-        backlog: 10,
-        shared: false,
-      );
+      bool started = false;
+      for (final port in portsToTry) {
+        try {
+          _serverPort = port;
+          _serverToken = _generateSecureToken();
+
+          _server = await HttpServer.bind(
+            InternetAddress.loopbackIPv4,
+            _serverPort!,
+            backlog: 10,
+            shared: false,
+          );
+
+          started = true;
+          break;
+        } catch (bindError) {
+          // 端口被占用，尝试下一个
+          continue;
+        }
+      }
+
+      if (!started) {
+        // 所有优先端口都失败，使用随机端口作为最后手段
+        _serverPort = 5000 + Random().nextInt(1000);
+        _serverToken = _generateSecureToken();
+        _server = await HttpServer.bind(
+          InternetAddress.loopbackIPv4,
+          _serverPort!,
+          backlog: 10,
+          shared: false,
+        );
+      }
 
       // 设置请求处理
       _server!.listen(_handleRequest, onError: (error) {
-        // debugPrint('服务器监听错误: $error');
         _handleServerError(error);
       });
+
+      // 保存当前端口到 SharedPreferences，供下次启动优先使用
+      await prefs.setInt('last_server_port', _serverPort!);
 
       // 写入配置文件供浏览器扩展读取
       await _writeServerConfig();
@@ -61,20 +100,8 @@ class LocalServerService {
       // 启动健康检查
       _startHealthCheck();
 
-      // debugPrint('✅ 密码管理器本地服务器已启动: http://127.0.0.1:$_serverPort');
-      // debugPrint('服务器Token: $_serverToken');
-
       return true;
     } catch (e) {
-      // debugPrint('❌ 启动本地服务器失败: $e');
-
-      // 如果端口冲突，尝试重新生成端口
-      if (e.toString().contains('port') || e.toString().contains('bind')) {
-        // debugPrint('端口冲突，尝试重新生成端口...');
-        _serverPort = _generateRandomPort();
-        return await startServer();
-      }
-
       return false;
     }
   }

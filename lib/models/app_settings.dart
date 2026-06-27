@@ -31,7 +31,7 @@ class AppSettings {
           : null,
       biometricEnabled: (map['biometric_enabled'] as int?) == 1,
       isFirstLaunch: (map['is_first_launch'] as int?) == 1,
-      appVersion: map['app_version'] as String? ?? '1.0.0',
+      appVersion: map['app_version'] as String? ?? '3.0.0',
       createdAt: DateTime.parse(map['created_at'] as String),
       updatedAt: DateTime.parse(map['updated_at'] as String),
     );

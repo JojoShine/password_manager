@@ -21,6 +21,7 @@ import '../widgets/footer.dart';
 import '../widgets/password_add_dialog.dart';
 import '../widgets/password_generator_dialog.dart';
 import '../widgets/theme_toggle_button.dart';
+import 'package:share_plus/share_plus.dart';
 import 'browser_extension_page.dart';
 import 'login_page.dart';
 import 'settings_page.dart';
@@ -436,7 +437,7 @@ class _HomePageState extends State<HomePage> {
                             '应用名称', appInfo['appName'] ?? '密码管理器'),
                         const SizedBox(height: 16),
                         _buildVersionInfoRow(
-                            '版本号', appInfo['version'] ?? '1.0.0'),
+                            '版本号', appInfo['version'] ?? '3.0.0'),
                         const SizedBox(height: 16),
                         _buildVersionInfoRow(
                             '构建号', appInfo['buildNumber'] ?? '1'),
@@ -572,7 +573,7 @@ class _HomePageState extends State<HomePage> {
     } catch (e) {
       return {
         'appName': '密码管理器',
-        'version': '1.0.0',
+        'version': '3.0.0',
         'buildNumber': '1',
         'packageName': 'com.example.password_manager',
       };
@@ -909,10 +910,42 @@ class _HomePageState extends State<HomePage> {
         return;
       }
 
+      // 去重：根据 网站+用户名+密码 判断是否重复
+      final List<PasswordEntry> newPasswords = [];
+      int duplicateCount = 0;
+
+      for (final imported in result.passwords) {
+        final isDuplicate = _allPasswords.any((existing) {
+          final sameWebsite = (existing.website ?? '') == (imported.website ?? '');
+          final sameUsername = existing.username == imported.username;
+          final samePassword = existing.password == imported.password;
+          return sameWebsite && sameUsername && samePassword;
+        });
+
+        if (isDuplicate) {
+          duplicateCount++;
+        } else {
+          newPasswords.add(imported);
+        }
+      }
+
+      if (newPasswords.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('文件中 ${result.passwords.length} 个密码均已存在，无需导入'),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+        return;
+      }
+
       // 合并数据
       final mergedPasswords = ImportExportService.instance.mergePasswords(
         _allPasswords,
-        result.passwords,
+        newPasswords,
         strategy: MergeStrategy.keepBoth,
       );
 
@@ -925,7 +958,10 @@ class _HomePageState extends State<HomePage> {
       await _savePasswordsToPreferences();
 
       if (mounted) {
-        String message = '成功导入 ${result.successCount} 个密码';
+        String message = '成功导入 ${newPasswords.length} 个密码';
+        if (duplicateCount > 0) {
+          message += '，跳过 $duplicateCount 个重复密码';
+        }
         if (result.hasFailures) {
           message += '，${result.failureCount} 个条目导入失败';
         }
@@ -936,7 +972,7 @@ class _HomePageState extends State<HomePage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(message),
-            backgroundColor: result.hasFailures ? Colors.orange : Colors.green,
+            backgroundColor: duplicateCount > 0 ? Colors.orange : Colors.green,
             duration: const Duration(seconds: 3),
           ),
         );
@@ -1413,7 +1449,7 @@ class _HomePageState extends State<HomePage> {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          'v1.0.0',
+                          'v3.0.0',
                           style: TextStyle(
                             fontSize: 12,
                             color: Theme.of(context)
@@ -2205,12 +2241,25 @@ class _PasswordViewDialogState extends State<_PasswordViewDialog> {
               ],
             ),
           ),
-          IconButton(
-            onPressed: () => Navigator.of(context).pop(),
-            icon: Icon(
-              Icons.close,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
+          Row(
+            children: [
+              // 分享按钮
+              IconButton(
+                onPressed: _sharePassword,
+                icon: Icon(
+                  Icons.share,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                tooltip: '分享',
+              ),
+              IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: Icon(
+                  Icons.close,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -2524,6 +2573,36 @@ class _PasswordViewDialogState extends State<_PasswordViewDialog> {
     );
   }
 
+  /// 分享密码信息
+  Future<void> _sharePassword() async {
+    final password = widget.password;
+    final buffer = StringBuffer();
+
+    // 标题
+    buffer.writeln(password.title);
+
+    // 网站
+    if (password.website?.isNotEmpty == true) {
+      buffer.writeln(password.website);
+    }
+
+    // 账号和密码
+    buffer.writeln('账号：${password.username}');
+    buffer.writeln('密码：${password.password}');
+
+    // 自定义字段
+    if (password.customFields.isNotEmpty) {
+      for (final entry in password.customFields.entries) {
+        buffer.writeln('${entry.key}：${entry.value}');
+      }
+    }
+
+    await Share.share(
+      buffer.toString().trimRight(),
+      subject: password.title,
+    );
+  }
+
   /// 格式化日期时间
   String _formatDateTime(DateTime dateTime) {
     return '${dateTime.year}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.day.toString().padLeft(2, '0')} '
@@ -2628,7 +2707,7 @@ class _PasswordViewDialogState extends State<_PasswordViewDialog> {
                               '应用名称', appInfo['appName'] ?? '密码管理器'),
                           const SizedBox(height: 16),
                           _buildVersionInfoRow(
-                              '版本号', appInfo['version'] ?? '1.0.0'),
+                              '版本号', appInfo['version'] ?? '3.0.0'),
                           const SizedBox(height: 16),
                           _buildVersionInfoRow(
                               '构建号', appInfo['buildNumber'] ?? '1'),
@@ -2758,7 +2837,7 @@ class _PasswordViewDialogState extends State<_PasswordViewDialog> {
     } catch (e) {
       return {
         'appName': '密码管理器',
-        'version': '1.0.0',
+        'version': '3.0.0',
         'buildNumber': '1',
         'packageName': 'com.example.password_manager',
       };

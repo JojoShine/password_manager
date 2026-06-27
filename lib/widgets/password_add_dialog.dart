@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -93,12 +95,11 @@ class _PasswordAddDialogState extends State<PasswordAddDialog>
   void _generatePassword() {
     const chars =
         'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#\$%^&*()';
-    final random = DateTime.now().millisecondsSinceEpoch;
-    var password = '';
-
-    for (int i = 0; i < 16; i++) {
-      password += chars[(random + i) % chars.length];
-    }
+    final random = Random.secure();
+    final password = List.generate(
+      12,
+      (index) => chars[random.nextInt(chars.length)],
+    ).join();
 
     setState(() {
       _passwordController.text = password;

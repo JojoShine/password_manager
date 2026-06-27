@@ -49,7 +49,7 @@ class Footer extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                '技术支持：甜宝塔家长',
+                '技术支持：tbtparent(甜宝塔家长)',
                 style: TextStyle(
                   fontSize: 12,
                   color:

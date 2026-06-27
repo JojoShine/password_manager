@@ -16,7 +16,7 @@ class PasswordGeneratorDialog extends StatefulWidget {
 
 class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
   // 密码生成配置
-  double _length = 16;
+  double _length = 12;
   bool _includeUppercase = true;
   bool _includeLowercase = true;
   bool _includeNumbers = true;
@@ -154,7 +154,7 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 800, maxHeight: 650),
+        constraints: const BoxConstraints(maxWidth: 800, maxHeight: 720),
         child: Column(
           children: [
             // 标题栏
@@ -314,40 +314,32 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
           ),
           const SizedBox(height: 8),
 
-          // 字符类型选项 - 可滚动区域
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  _buildCharacterTypeOption('大写字母 (A-Z)', _includeUppercase,
-                      (value) {
-                    setState(() => _includeUppercase = value);
-                    _generatePassword();
-                  }),
-                  _buildCharacterTypeOption('小写字母 (a-z)', _includeLowercase,
-                      (value) {
-                    setState(() => _includeLowercase = value);
-                    _generatePassword();
-                  }),
-                  _buildCharacterTypeOption('数字 (0-9)', _includeNumbers,
-                      (value) {
-                    setState(() => _includeNumbers = value);
-                    _generatePassword();
-                  }),
-                  _buildCharacterTypeOption('特殊符号 (!@#\$%^&*)', _includeSymbols,
-                      (value) {
-                    setState(() => _includeSymbols = value);
-                    _generatePassword();
-                  }),
-                  _buildCharacterTypeOption('排除相似字符 (il1Lo0O)', _excludeSimilar,
-                      (value) {
-                    setState(() => _excludeSimilar = value);
-                    _generatePassword();
-                  }),
-                ],
-              ),
-            ),
-          ),
+          // 字符类型选项
+          _buildCharacterTypeOption('大写字母 (A-Z)', _includeUppercase,
+              (value) {
+            setState(() => _includeUppercase = value);
+            _generatePassword();
+          }),
+          _buildCharacterTypeOption('小写字母 (a-z)', _includeLowercase,
+              (value) {
+            setState(() => _includeLowercase = value);
+            _generatePassword();
+          }),
+          _buildCharacterTypeOption('数字 (0-9)', _includeNumbers,
+              (value) {
+            setState(() => _includeNumbers = value);
+            _generatePassword();
+          }),
+          _buildCharacterTypeOption('特殊符号 (!@#\$%^&*)', _includeSymbols,
+              (value) {
+            setState(() => _includeSymbols = value);
+            _generatePassword();
+          }),
+          _buildCharacterTypeOption('排除相似字符 (il1Lo0O)', _excludeSimilar,
+              (value) {
+            setState(() => _excludeSimilar = value);
+            _generatePassword();
+          }),
         ],
       ),
     );
@@ -357,19 +349,25 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
   Widget _buildCharacterTypeOption(
       String title, bool value, ValueChanged<bool> onChanged) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: [
-          Checkbox(
-            value: value,
-            onChanged: (newValue) => onChanged(newValue ?? false),
+          SizedBox(
+            width: 32,
+            height: 32,
+            child: Checkbox(
+              value: value,
+              onChanged: (newValue) => onChanged(newValue ?? false),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              visualDensity: VisualDensity.compact,
+            ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
           Expanded(
             child: Text(
               title,
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 13,
                 color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
