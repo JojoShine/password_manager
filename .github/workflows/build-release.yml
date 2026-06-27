@@ -61,8 +61,6 @@ jobs:
   build-windows:
     name: Build Windows App
     runs-on: windows-2022
-    env:
-      CMAKE_GENERATOR: "Visual Studio 17 2022"
     
     steps:
       - name: Checkout code
@@ -90,33 +88,36 @@ jobs:
       - name: Clean Windows build cache
         run: if (Test-Path build) { Remove-Item -Recurse -Force build }
       
-      - name: Create cmake wrapper for VS 2022
+      - name: Patch Flutter SDK to use VS 2022 generator
         shell: pwsh
         run: |
-          # 找到真实的 cmake.exe
-          $cmakePath = (Get-Command cmake).Source
-          $cmakeDir = Split-Path $cmakePath -Parent
-          Write-Host "cmake location: $cmakePath"
+          # Flutter通过vswhere.exe检测VS版本，但某些环境下检测失败
+          # 直接修补预编译snapshot中的生成器字符串，强制使用VS 2022
+          $flutterRoot = (flutter --version | Select-String "Flutter at (.+)" | ForEach-Object { $_.Matches.Groups[1].Value })
+          if (-not $flutterRoot) {
+            $flutterBin = (Get-Command flutter).Source | Split-Path -Parent
+            $flutterRoot = Split-Path $flutterBin -Parent
+          }
+          Write-Host "Flutter SDK: $flutterRoot"
           
-          # 创建wrapper目录
-          $wrapperDir = "C:\cmake-wrapper"
-          New-Item -ItemType Directory -Force -Path $wrapperDir | Out-Null
-          
-          # 将真实cmake复制到wrapper目录并重命名
-          Copy-Item $cmakePath "$wrapperDir\cmake-real.exe"
-          
-          # 创建wrapper脚本，替换VS 2019为VS 2022
-          $wrapperContent = "@echo off`r`nsetlocal EnableDelayedExpansion`r`nset `"ARGS=%*`"`r`nset `"ARGS=!ARGS:Visual Studio 16 2019=Visual Studio 17 2022!`"`r`n`"%~dp0cmake-real.exe`" %ARGS%"
-          Set-Content -Path "$wrapperDir\cmake.bat" -Value $wrapperContent -Encoding ASCII
-          
-          # 将wrapper目录加到PATH最前面
-          "CMAKE_WRAPPER=$wrapperDir" | Out-File -FilePath $env:GITHUB_ENV -Append
-          Write-Host "cmake wrapper created at $wrapperDir"
+          $snapshotPath = Join-Path $flutterRoot "bin\cache\flutter_tools.snapshot"
+          if (Test-Path $snapshotPath) {
+            $bytes = [System.IO.File]::ReadAllBytes($snapshotPath)
+            $content = [System.Text.Encoding]::ASCII.GetString($bytes)
+            $old = "Visual Studio 16 2019"
+            $new = "Visual Studio 17 2022"
+            $count = ([regex]::Matches($content, [regex]::Escape($old))).Count
+            Write-Host "Found $count occurrences of '$old'"
+            $content = $content.Replace($old, $new)
+            $newBytes = [System.Text.Encoding]::ASCII.GetBytes($content)
+            [System.IO.File]::WriteAllBytes($snapshotPath, $newBytes)
+            Write-Host "Patched snapshot: replaced '$old' with '$new'"
+          } else {
+            Write-Host "Snapshot not found at $snapshotPath"
+          }
       
       - name: Build Windows app
-        run: |
-          $env:PATH = "${{ env.CMAKE_WRAPPER }};" + $env:PATH
-          flutter build windows --release
+        run: flutter build windows --release
       
       - name: Create ZIP package
         uses: vimtor/action-zip@v1
