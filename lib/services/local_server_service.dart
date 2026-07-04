@@ -6,6 +6,7 @@ import 'dart:math';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/password_entry.dart';
+import 'secure_storage_service.dart';
 
 /// 本地HTTP服务器服务
 /// 用于与浏览器扩展进行无感知的本地通信
@@ -205,8 +206,16 @@ class LocalServerService {
 
   /// 处理HTTP请求
   Future<void> _handleRequest(HttpRequest request) async {
-    // 设置CORS头，允许浏览器扩展访问
-    request.response.headers.set('Access-Control-Allow-Origin', '*');
+    // 设置CORS头，仅允许本地回环地址访问（浏览器扩展通过 localhost/127.0.0.1 访问）
+    final origin = request.headers.value('Origin') ?? '';
+    final allowedOrigin = (origin.startsWith('http://127.0.0.1') ||
+            origin.startsWith('http://localhost') ||
+            origin.startsWith('https://127.0.0.1') ||
+            origin.startsWith('https://localhost') ||
+            origin.startsWith('chrome-extension://'))
+        ? origin
+        : 'http://127.0.0.1:$_serverPort';
+    request.response.headers.set('Access-Control-Allow-Origin', allowedOrigin);
     request.response.headers
         .set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     request.response.headers.set('Access-Control-Allow-Headers',
@@ -398,11 +407,15 @@ class LocalServerService {
     }
   }
 
-  /// 读取请求体
+  /// 读取请求体（限制最大 1MB）
   Future<String> _readRequestBody(HttpRequest request) async {
     final bytes = <int>[];
+    const maxBodySize = 1 * 1024 * 1024; // 1MB
     await for (final data in request) {
       bytes.addAll(data);
+      if (bytes.length > maxBodySize) {
+        throw Exception('请求体过大，最大允许 1MB');
+      }
     }
     return utf8.decode(bytes);
   }
@@ -457,6 +470,14 @@ class LocalServerService {
       };
 
       await configFile.writeAsString(jsonEncode(config));
+
+      // 设置文件权限为仅当前用户可读写（Unix 系统）
+      if (!Platform.isWindows) {
+        try {
+          await Process.run('chmod', ['600', configFile.path]);
+        } catch (_) {}
+      }
+
       // debugPrint('服务器配置已写入: ${configFile.path}');
     } catch (e) {
       // debugPrint('写入服务器配置失败: $e');
@@ -525,24 +546,16 @@ class LocalServerService {
 
 /// 密码服务接口
 ///
-/// 直接从SharedPreferences读取真实的密码数据（与home_page.dart使用相同的存储）
+/// 使用 SecureStorageService 读写加密密码数据
 class PasswordService {
   /// 密码数据变更回调
   static void Function()? onPasswordDataChanged;
 
-  /// 从SharedPreferences加载所有密码
+  /// 从安全存储加载所有密码
   static Future<List<PasswordEntry>> _loadPasswordsFromPreferences() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-
-      // 使用与home_page.dart相同的键名
-      List<String> passwordsJson = prefs.getStringList('saved_passwords') ?? [];
-
-      // 如果主数据为空，尝试从备份恢复
-      if (passwordsJson.isEmpty) {
-        passwordsJson = prefs.getStringList('saved_passwords_backup') ?? [];
-        // debugPrint('主数据为空，从备份数据恢复');
-      }
+      // 使用 SecureStorageService 加载加密数据
+      final passwordsJson = await SecureStorageService.instance.loadPasswords();
 
       final passwords = passwordsJson
           .map((jsonString) {
@@ -550,7 +563,6 @@ class PasswordService {
               final json = jsonDecode(jsonString) as Map<String, dynamic>;
               return PasswordEntry.fromJson(json);
             } catch (e) {
-              // debugPrint('解析密码条目失败: $e');
               return null;
             }
           })
@@ -558,34 +570,23 @@ class PasswordService {
           .cast<PasswordEntry>()
           .toList();
 
-      // debugPrint('从SharedPreferences加载了 ${passwords.length} 条密码记录');
       return passwords;
     } catch (e) {
-      // debugPrint('从SharedPreferences加载密码失败: $e');
       return [];
     }
   }
 
-  /// 保存密码到SharedPreferences
+  /// 保存密码到安全存储
   static Future<void> _savePasswordsToPreferences(
       List<PasswordEntry> passwords) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
       final passwordsJson = passwords.map((password) {
         return jsonEncode(password.toJson());
       }).toList();
 
-      // 保存主数据
-      await prefs.setStringList('saved_passwords', passwordsJson);
-
-      // 保存备份数据和时间戳
-      await prefs.setStringList('saved_passwords_backup', passwordsJson);
-      await prefs.setString(
-          'last_backup_time', DateTime.now().toIso8601String());
-
-      // debugPrint('密码数据已保存到SharedPreferences，共${passwords.length}条记录');
+      // 使用 SecureStorageService 加密保存
+      await SecureStorageService.instance.savePasswords(passwordsJson);
     } catch (e) {
-      // debugPrint('保存密码数据到SharedPreferences失败: $e');
       rethrow;
     }
   }

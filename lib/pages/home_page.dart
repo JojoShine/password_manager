@@ -13,6 +13,7 @@ import '../services/auth_service.dart';
 import '../services/event_bus.dart';
 import '../services/import_export_service.dart';
 import '../services/local_server_service.dart';
+import '../services/secure_storage_service.dart';
 import '../services/settings_service.dart';
 import '../services/theme_service.dart';
 import '../widgets/decrypt_password_dialog.dart';
@@ -21,7 +22,6 @@ import '../widgets/footer.dart';
 import '../widgets/password_add_dialog.dart';
 import '../widgets/password_generator_dialog.dart';
 import '../widgets/theme_toggle_button.dart';
-import 'package:share_plus/share_plus.dart';
 import 'browser_extension_page.dart';
 import 'login_page.dart';
 import 'settings_page.dart';
@@ -136,14 +136,13 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  /// 加载密码数据（暂时从SharedPreferences加载）
+  /// 加载密码数据（从安全存储加载）
   Future<void> _loadPasswords() async {
     setState(() {
       _isLoading = true;
     });
 
     try {
-      // 暂时使用SharedPreferences存储密码数据
       await _loadPasswordsFromPreferences();
       setState(() {
         _isLoading = false;
@@ -163,23 +162,11 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  /// 从SharedPreferences加载密码（带恢复功能）
+  /// 从安全存储加载密码（自动解密，带恢复功能）
   Future<void> _loadPasswordsFromPreferences() async {
-    final prefs = await SharedPreferences.getInstance();
-
     try {
-      // 尝试加载主数据
-      List<String> passwordsJson = prefs.getStringList('saved_passwords') ?? [];
-
-      // 如果主数据为空，尝试从备份恢复
-      if (passwordsJson.isEmpty) {
-        passwordsJson = prefs.getStringList('saved_passwords_backup') ?? [];
-        if (passwordsJson.isNotEmpty) {
-          // print('主数据为空，从备份数据恢复');
-          // 恢复主数据
-          await prefs.setStringList('saved_passwords', passwordsJson);
-        }
-      }
+      // 使用 SecureStorageService 加载加密数据
+      final passwordsJson = await SecureStorageService.instance.loadPasswords();
 
       final passwords = passwordsJson
           .map((jsonString) {
@@ -187,7 +174,6 @@ class _HomePageState extends State<HomePage> {
               final json = jsonDecode(jsonString) as Map<String, dynamic>;
               return PasswordEntry.fromJson(json);
             } catch (e) {
-              // print('解析密码条目失败: $e');
               return null;
             }
           })
@@ -199,9 +185,8 @@ class _HomePageState extends State<HomePage> {
         _allPasswords = passwords;
       });
 
-      // print('成功加载${passwords.length}条密码记录');
-
       // 显示最后备份时间
+      final prefs = await SharedPreferences.getInstance();
       final lastBackupTime = prefs.getString('last_backup_time');
       if (lastBackupTime != null && mounted) {
         final backupDate = DateTime.parse(lastBackupTime);
@@ -217,32 +202,22 @@ class _HomePageState extends State<HomePage> {
         );
       }
     } catch (e) {
-      // print('加载密码数据失败: $e');
       setState(() {
         _allPasswords = [];
       });
     }
   }
 
-  /// 保存密码到SharedPreferences（带备份）
+  /// 保存密码到安全存储（自动加密）
   Future<void> _savePasswordsToPreferences() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
       final passwordsJson = _allPasswords.map((password) {
         return jsonEncode(password.toJson());
       }).toList();
 
-      // 保存主数据
-      await prefs.setStringList('saved_passwords', passwordsJson);
-
-      // 保存备份数据和时间戳
-      await prefs.setStringList('saved_passwords_backup', passwordsJson);
-      await prefs.setString(
-          'last_backup_time', DateTime.now().toIso8601String());
-
-      // print('密码数据已保存，共${_allPasswords.length}条记录');
+      // 使用 SecureStorageService 加密保存
+      await SecureStorageService.instance.savePasswords(passwordsJson);
     } catch (e) {
-      // print('保存密码数据失败: $e');
       rethrow;
     }
   }
@@ -690,11 +665,20 @@ class _HomePageState extends State<HomePage> {
             ),
             ListTile(
               leading: const Icon(Icons.download),
-              title: const Text('导入数据'),
+              title: const Text('从JSON导入'),
               subtitle: const Text('从JSON文件导入密码'),
               onTap: () {
                 Navigator.pop(context);
                 _importPasswords();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.table_chart_outlined),
+              title: const Text('从CSV导入'),
+              subtitle: const Text('从CSV表格文件导入密码'),
+              onTap: () {
+                Navigator.pop(context);
+                _importFromCSV();
               },
             ),
           ],
@@ -982,6 +966,151 @@ class _HomePageState extends State<HomePage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('导入失败: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  /// 分享单个密码（复制到剪贴板）
+  Future<void> _shareOnePassword(PasswordEntry password) async {
+    final buffer = StringBuffer();
+
+    // 标题
+    buffer.writeln(password.title);
+
+    // 网站
+    if (password.website?.isNotEmpty == true) {
+      buffer.writeln('网站/应用：${password.website}');
+    }
+
+    // 账号和密码
+    buffer.writeln('账号：${password.username}');
+    buffer.writeln('密码：${password.password}');
+
+    // 自定义字段
+    if (password.customFields.isNotEmpty) {
+      for (final entry in password.customFields.entries) {
+        buffer.writeln('${entry.key}：${entry.value}');
+      }
+    }
+
+    // 备注
+    if (password.notes?.isNotEmpty == true) {
+      buffer.writeln('备注：${password.notes}');
+    }
+
+    await Clipboard.setData(ClipboardData(text: buffer.toString().trimRight()));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('"${password.title}" 已复制到剪贴板'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  /// 从CSV文件导入密码
+  Future<void> _importFromCSV() async {
+    try {
+      final result = await ImportExportService.instance.importFromCSV();
+
+      if (!result.success) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result.errorMessage ?? 'CSV导入失败'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      if (result.passwords.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('CSV文件中没有找到有效的密码数据'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
+      // 去重：根据 网站+用户名+密码 判断是否重复
+      final List<PasswordEntry> newPasswords = [];
+      int duplicateCount = 0;
+
+      for (final imported in result.passwords) {
+        final isDuplicate = _allPasswords.any((existing) {
+          final sameWebsite = (existing.website ?? '') == (imported.website ?? '');
+          final sameUsername = existing.username == imported.username;
+          final samePassword = existing.password == imported.password;
+          return sameWebsite && sameUsername && samePassword;
+        });
+
+        if (isDuplicate) {
+          duplicateCount++;
+        } else {
+          newPasswords.add(imported);
+        }
+      }
+
+      if (newPasswords.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('CSV中 ${result.passwords.length} 个密码均已存在，无需导入'),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+        return;
+      }
+
+      // 合并数据
+      final mergedPasswords = ImportExportService.instance.mergePasswords(
+        _allPasswords,
+        newPasswords,
+        strategy: MergeStrategy.keepBoth,
+      );
+
+      setState(() {
+        _allPasswords.clear();
+        _allPasswords.addAll(mergedPasswords);
+      });
+
+      // 保存数据
+      await _savePasswordsToPreferences();
+
+      if (mounted) {
+        String message = '成功从CSV导入 ${newPasswords.length} 个密码';
+        if (duplicateCount > 0) {
+          message += '，跳过 $duplicateCount 个重复密码';
+        }
+        if (result.hasFailures) {
+          message += '，${result.failureCount} 个条目导入失败';
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: duplicateCount > 0 ? Colors.orange : Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('CSV导入失败: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -2053,6 +2182,19 @@ class _HomePageState extends State<HomePage> {
                       const BoxConstraints(minWidth: 32, minHeight: 32),
                   padding: const EdgeInsets.all(4),
                 ),
+                // 分享按钮
+                IconButton(
+                  onPressed: () => _shareOnePassword(password),
+                  icon: Icon(
+                    Icons.share,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.tertiary,
+                  ),
+                  tooltip: '分享',
+                  constraints:
+                      const BoxConstraints(minWidth: 32, minHeight: 32),
+                  padding: const EdgeInsets.all(4),
+                ),
                 // 删除按钮
                 IconButton(
                   onPressed: () => _showDeleteConfirmDialog(password, index),
@@ -2583,7 +2725,7 @@ class _PasswordViewDialogState extends State<_PasswordViewDialog> {
 
     // 网站
     if (password.website?.isNotEmpty == true) {
-      buffer.writeln(password.website);
+      buffer.writeln('网站/应用：${password.website}');
     }
 
     // 账号和密码
@@ -2597,10 +2739,21 @@ class _PasswordViewDialogState extends State<_PasswordViewDialog> {
       }
     }
 
-    await Share.share(
-      buffer.toString().trimRight(),
-      subject: password.title,
-    );
+    // 备注
+    if (password.notes?.isNotEmpty == true) {
+      buffer.writeln('备注：${password.notes}');
+    }
+
+    await Clipboard.setData(ClipboardData(text: buffer.toString().trimRight()));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('"${password.title}" 已复制到剪贴板'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   /// 格式化日期时间

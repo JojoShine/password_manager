@@ -1,9 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
+import 'package:pointycastle/export.dart';
 
 import '../models/password_entry.dart';
 // 条件导入：只在Web平台导入dart:html
@@ -53,9 +56,10 @@ class ImportExportService {
         final encryptedData = _encryptData(dataToEncrypt, masterPassword);
 
         final encryptedExportData = {
-          'version': '1.0.0',
+          'version': '2.0.0',
           'exportTime': DateTime.now().toIso8601String(),
           'encrypted': true,
+          'encryption': 'aes-256-cbc',
           'data': encryptedData,
         };
 
@@ -173,7 +177,7 @@ class ImportExportService {
           final decryptedJson =
               jsonDecode(decryptedData) as Map<String, dynamic>;
     // print('解密成功');
-          return _parsePasswordData(decryptedJson);
+          return _parsePasswordData(decryptedJson, wasEncrypted: true);
         } catch (e) {
     // print('解密失败: $e');
           return ImportResult.error('解密失败：密码可能不正确或文件已损坏');
@@ -203,7 +207,7 @@ class ImportExportService {
               _decryptData(data['data'] as String, decryptPassword);
           final decryptedJson =
               jsonDecode(decryptedData) as Map<String, dynamic>;
-          return _parsePasswordData(decryptedJson);
+          return _parsePasswordData(decryptedJson, wasEncrypted: true);
         } catch (e) {
           return ImportResult.error('解密失败：密码可能不正确或文件已损坏');
         }
@@ -218,7 +222,7 @@ class ImportExportService {
   }
 
   /// 解析密码数据的通用方法
-  ImportResult _parsePasswordData(Map<String, dynamic> data) {
+  ImportResult _parsePasswordData(Map<String, dynamic> data, {bool wasEncrypted = false}) {
     try {
       // 验证数据格式
       if (!data.containsKey('passwords') || !data.containsKey('version')) {
@@ -246,7 +250,7 @@ class ImportExportService {
         successCount: passwords.length,
         version: data['version'] as String?,
         exportTime: data['exportTime'] as String?,
-        wasEncrypted: data['encrypted'] == true,
+        wasEncrypted: wasEncrypted,
       );
     } catch (e) {
       return ImportResult.error('解析数据失败: $e');
@@ -273,24 +277,77 @@ class ImportExportService {
     }
   }
 
-  /// 使用简单的对称加密方法加密数据
+  /// AES-256-CBC 加密数据（新格式）
   String _encryptData(String data, String password) {
-    final key = _deriveKey(password);
-    final dataBytes = utf8.encode(data);
-    final encryptedBytes = <int>[];
+    final random = Random.secure();
+    // 生成随机盐值（16字节）和 IV（16字节）
+    final salt = Uint8List.fromList(
+      List<int>.generate(16, (_) => random.nextInt(256)),
+    );
+    final iv = Uint8List.fromList(
+      List<int>.generate(16, (_) => random.nextInt(256)),
+    );
 
-    for (int i = 0; i < dataBytes.length; i++) {
-      final keyIndex = i % key.length;
-      encryptedBytes.add(dataBytes[i] ^ key[keyIndex]);
+    // 使用 PBKDF2 派生 256 位密钥
+    final key = _deriveKeyFromPassword(password, salt);
+
+    // AES-256-CBC 加密
+    final cipher = CBCBlockCipher(AESEngine())
+      ..init(true, ParametersWithIV(KeyParameter(key), iv));
+
+    final dataBytes = Uint8List.fromList(utf8.encode(data));
+    final paddedData = _pkcs7Pad(dataBytes, 16);
+    final encryptedBytes = Uint8List(paddedData.length);
+
+    for (int offset = 0; offset < paddedData.length; offset += 16) {
+      cipher.processBlock(paddedData, offset, encryptedBytes, offset);
     }
 
-    return base64Encode(encryptedBytes);
+    // 格式: salt(16) + iv(16) + ciphertext
+    final result = Uint8List(salt.length + iv.length + encryptedBytes.length);
+    result.setAll(0, salt);
+    result.setAll(16, iv);
+    result.setAll(32, encryptedBytes);
+
+    return base64Encode(result);
   }
 
-  /// 使用简单的对称加密方法解密数据
+  /// 解密数据（自动检测新旧格式，向后兼容旧版 XOR 加密）
   String _decryptData(String encryptedData, String password) {
-    final key = _deriveKey(password);
-    final encryptedBytes = base64Decode(encryptedData);
+    final allBytes = base64Decode(encryptedData);
+
+    // 检测格式：新格式至少 48 字节（16 salt + 16 iv + 16 密文块），
+    // 且第33字节应为 0x50 ('P') 作为 "PM" 标记
+    if (allBytes.length >= 48 && allBytes[32] == 0x50 && allBytes[33] == 0x4D) {
+      return _decryptDataAes(allBytes, password);
+    }
+    // 向后兼容：旧版 XOR 格式
+    return _decryptDataLegacy(allBytes, password);
+  }
+
+  /// AES-256-CBC 解密（新格式）
+  String _decryptDataAes(Uint8List allBytes, String password) {
+    final salt = allBytes.sublist(0, 16);
+    final iv = allBytes.sublist(16, 32);
+    final ciphertext = allBytes.sublist(32);
+
+    final key = _deriveKeyFromPassword(password, Uint8List.fromList(salt));
+
+    final cipher = CBCBlockCipher(AESEngine())
+      ..init(false, ParametersWithIV(KeyParameter(key), Uint8List.fromList(iv)));
+
+    final decryptedBytes = Uint8List(ciphertext.length);
+    for (int offset = 0; offset < ciphertext.length; offset += 16) {
+      cipher.processBlock(ciphertext, offset, decryptedBytes, offset);
+    }
+
+    final unpadded = _pkcs7Unpad(decryptedBytes);
+    return utf8.decode(unpadded);
+  }
+
+  /// 旧版 XOR 解密（向后兼容）
+  String _decryptDataLegacy(Uint8List encryptedBytes, String password) {
+    final key = _deriveKeyLegacy(password);
     final decryptedBytes = <int>[];
 
     for (int i = 0; i < encryptedBytes.length; i++) {
@@ -301,18 +358,79 @@ class ImportExportService {
     return utf8.decode(decryptedBytes);
   }
 
-  /// 从密码派生密钥
-  List<int> _deriveKey(String password) {
-    // 使用 PBKDF2 类似的方法派生密钥
+  /// PBKDF2-SHA256 派生密钥（新格式，使用随机盐值）
+  Uint8List _deriveKeyFromPassword(String password, Uint8List salt) {
+    return _pbkdf2Sha256(utf8.encode(password), salt, 10000, 32);
+  }
+
+  /// 手动实现 PBKDF2-HMAC-SHA256
+  Uint8List _pbkdf2Sha256(List<int> password, Uint8List salt, int iterations, int keyLength) {
+    final hmac = Hmac(sha256, password);
+    final result = Uint8List(keyLength);
+    int blockIndex = 1;
+    int derivedLength = 0;
+
+    while (derivedLength < keyLength) {
+      // U1 = HMAC(password, salt + INT_32_BE(blockIndex))
+      final saltBlock = Uint8List(salt.length + 4);
+      saltBlock.setAll(0, salt);
+      saltBlock[salt.length] = (blockIndex >> 24) & 0xFF;
+      saltBlock[salt.length + 1] = (blockIndex >> 16) & 0xFF;
+      saltBlock[salt.length + 2] = (blockIndex >> 8) & 0xFF;
+      saltBlock[salt.length + 3] = blockIndex & 0xFF;
+
+      var u = Uint8List.fromList(hmac.convert(saltBlock).bytes);
+      var block = Uint8List.fromList(u);
+
+      // U2..Uc
+      for (int i = 1; i < iterations; i++) {
+        u = Uint8List.fromList(hmac.convert(u).bytes);
+        for (int j = 0; j < block.length; j++) {
+          block[j] ^= u[j];
+        }
+      }
+
+      final copyLength = keyLength - derivedLength > block.length
+          ? block.length
+          : keyLength - derivedLength;
+      result.setAll(derivedLength, block.sublist(0, copyLength));
+      derivedLength += copyLength;
+      blockIndex++;
+    }
+
+    return result;
+  }
+
+  /// 旧版密钥派生（向后兼容）
+  List<int> _deriveKeyLegacy(String password) {
     final bytes = utf8.encode(password + 'password_manager_encrypt_salt');
     var hash = sha256.convert(bytes);
-
-    // 进行多轮哈希增强安全性
     for (int i = 0; i < 1000; i++) {
       hash = sha256.convert(hash.bytes);
     }
-
     return hash.bytes;
+  }
+
+  /// PKCS7 填充
+  Uint8List _pkcs7Pad(Uint8List data, int blockSize) {
+    final padLength = blockSize - (data.length % blockSize);
+    final padded = Uint8List(data.length + padLength);
+    padded.setAll(0, data);
+    for (int i = data.length; i < padded.length; i++) {
+      padded[i] = padLength;
+    }
+    return padded;
+  }
+
+  /// PKCS7 去填充
+  Uint8List _pkcs7Unpad(Uint8List data) {
+    if (data.isEmpty) return data;
+    final padLength = data.last;
+    if (padLength < 1 || padLength > 16) return data;
+    for (int i = data.length - padLength; i < data.length; i++) {
+      if (data[i] != padLength) return data; // 填充无效
+    }
+    return Uint8List.fromList(data.sublist(0, data.length - padLength));
   }
 
   /// 导出到CSV格式
@@ -398,6 +516,245 @@ class ImportExportService {
     // print('Web下载失败: $e');
       }
     }
+  }
+
+  /// 从CSV文件导入密码数据
+  Future<ImportResult> importFromCSV() async {
+    try {
+      // 选择文件
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['csv'],
+        allowMultiple: false,
+      );
+
+      if (result == null) {
+        return ImportResult.cancelled();
+      }
+
+      String csvString;
+
+      if (kIsWeb) {
+        if (result.files.single.bytes == null) {
+          return ImportResult.error('无法读取文件内容');
+        }
+        final bytes = result.files.single.bytes!;
+        csvString = String.fromCharCodes(bytes);
+      } else {
+        if (result.files.single.path == null) {
+          return ImportResult.cancelled();
+        }
+        final File file = File(result.files.single.path!);
+        csvString = await file.readAsString();
+      }
+
+      return _parseCSVContent(csvString);
+    } catch (e) {
+      return ImportResult.error('CSV导入失败: $e');
+    }
+  }
+
+  /// 解析CSV内容
+  ImportResult _parseCSVContent(String csvContent) {
+    try {
+      final rawLines = _splitCSVLines(csvContent);
+      if (rawLines.isEmpty) {
+        return ImportResult.error('CSV文件为空');
+      }
+
+      // 第一行为头部，识别列映射
+      final header = rawLines.first;
+      final columnMap = _buildCSVColumnMap(header);
+
+      if (columnMap == null) {
+        return ImportResult.error('无法识别CSV文件格式，请确保包含标题、用户名、密码列');
+      }
+
+      final List<PasswordEntry> passwords = [];
+
+      for (int i = 1; i < rawLines.length; i++) {
+        final fields = rawLines[i];
+        if (fields.isEmpty) continue;
+
+        try {
+          if (fields.length < columnMap.length) {
+            continue;
+          }
+
+          final title = fields[columnMap['title']!].trim();
+          final username = fields[columnMap['username']!].trim();
+          final password = fields[columnMap['password']!].trim();
+
+          // 标题、用户名、密码为必填
+          if (title.isEmpty && username.isEmpty && password.isEmpty) {
+            continue;
+          }
+
+          final website = columnMap.containsKey('website')
+              ? fields[columnMap['website']!].trim()
+              : '';
+          final category = columnMap.containsKey('category')
+              ? fields[columnMap['category']!].trim()
+              : '';
+          final notes = columnMap.containsKey('notes')
+              ? fields[columnMap['notes']!].trim()
+              : '';
+
+          DateTime? createdAt;
+          DateTime? updatedAt;
+
+          if (columnMap.containsKey('createdAt')) {
+            final dateStr = fields[columnMap['createdAt']!].trim();
+            if (dateStr.isNotEmpty) {
+              try {
+                createdAt = DateTime.parse(dateStr);
+              } catch (_) {}
+            }
+          }
+
+          if (columnMap.containsKey('updatedAt')) {
+            final dateStr = fields[columnMap['updatedAt']!].trim();
+            if (dateStr.isNotEmpty) {
+              try {
+                updatedAt = DateTime.parse(dateStr);
+              } catch (_) {}
+            }
+          }
+
+          passwords.add(PasswordEntry(
+            title: title.isNotEmpty ? title : '未命名',
+            username: username,
+            password: password,
+            website: website.isNotEmpty ? website : null,
+            category: category.isNotEmpty ? category : null,
+            notes: notes.isNotEmpty ? notes : null,
+            createdAt: createdAt ?? DateTime.now(),
+            updatedAt: updatedAt ?? DateTime.now(),
+          ));
+        } catch (e) {
+          // 跳过解析失败的行
+        }
+      }
+
+      return ImportResult.success(
+        passwords: passwords,
+        totalCount: rawLines.length - 1, // 减去头部
+        successCount: passwords.length,
+      );
+    } catch (e) {
+      return ImportResult.error('解析CSV文件失败: $e');
+    }
+  }
+
+  /// 构建CSV列映射
+  Map<String, int>? _buildCSVColumnMap(List<String> header) {
+    final map = <String, int>{};
+
+    // 支持的列名映射（支持中英文）
+    final columnAliases = {
+      'title': ['标题', 'title', '名称', 'name'],
+      'username': ['用户名', 'username', 'user', 'email', '邮箱', '账号', 'account'],
+      'password': ['密码', 'password', 'pass', 'pwd'],
+      'website': ['网站', 'website', 'url', '网址', '链接', 'link'],
+      'category': ['分类', 'category', 'group', '分组', '类型', 'type'],
+      'notes': ['备注', 'notes', 'note', 'comment', '注释', '说明'],
+      'createdAt': ['创建时间', 'createdat', 'created', 'creation_date'],
+      'updatedAt': ['更新时间', 'updatedat', 'updated', 'modified', 'last_modified'],
+    };
+
+    for (int i = 0; i < header.length; i++) {
+      final normalized = header[i].trim().toLowerCase();
+      for (final entry in columnAliases.entries) {
+        if (entry.value.contains(normalized) && !map.containsKey(entry.key)) {
+          map[entry.key] = i;
+        }
+      }
+    }
+
+    // 必须包含标题、用户名、密码三列
+    if (!map.containsKey('title') ||
+        !map.containsKey('username') ||
+        !map.containsKey('password')) {
+      return null;
+    }
+
+    return map;
+  }
+
+  /// 分割CSV行为列表（处理引号内的换行）
+  List<List<String>> _splitCSVLines(String content) {
+    final result = <List<String>>[];
+    final lines = <String>[];
+    var currentLine = StringBuffer();
+    var inQuotes = false;
+
+    for (int i = 0; i < content.length; i++) {
+      final char = content[i];
+
+      if (char == '"') {
+        // 检查是否是转义的引号
+        if (inQuotes && i + 1 < content.length && content[i + 1] == '"') {
+          currentLine.write('""');
+          i++; // 跳过下一个引号
+        } else {
+          inQuotes = !inQuotes;
+          currentLine.write(char);
+        }
+      } else if ((char == '\n' || char == '\r') && !inQuotes) {
+        if (char == '\r' && i + 1 < content.length && content[i + 1] == '\n') {
+          i++; // 跳过 \n
+        }
+        final line = currentLine.toString().trim();
+        if (line.isNotEmpty) {
+          lines.add(line);
+        }
+        currentLine = StringBuffer();
+      } else {
+        currentLine.write(char);
+      }
+    }
+
+    // 处理最后一行
+    final lastLine = currentLine.toString().trim();
+    if (lastLine.isNotEmpty) {
+      lines.add(lastLine);
+    }
+
+    for (final line in lines) {
+      result.add(_parseCSVLine(line));
+    }
+
+    return result;
+  }
+
+  /// 解析CSV单行（正确处理引号包裹的字段）
+  List<String> _parseCSVLine(String line) {
+    final fields = <String>[];
+    final currentField = StringBuffer();
+    var inQuotes = false;
+
+    for (int i = 0; i < line.length; i++) {
+      final char = line[i];
+
+      if (char == '"') {
+        if (inQuotes && i + 1 < line.length && line[i + 1] == '"') {
+          // 转义的引号
+          currentField.write('"');
+          i++;
+        } else {
+          // 切换引号状态
+          inQuotes = !inQuotes;
+        }
+      } else if (char == ',' && !inQuotes) {
+        fields.add(currentField.toString());
+        currentField.clear();
+      } else {
+        currentField.write(char);
+      }
+    }
+
+    fields.add(currentField.toString());
+    return fields;
   }
 
   /// 转义CSV字段

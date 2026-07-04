@@ -172,8 +172,8 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       return '请输入密码';
     }
 
-    if (_isFirstLaunch && value.length < 6) {
-      return '密码长度至少为6位';
+    if (_isFirstLaunch && value.length < 8) {
+      return '密码长度至少为8位';
     }
 
     return null;

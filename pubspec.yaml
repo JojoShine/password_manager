@@ -40,12 +40,16 @@ dependencies:
   
   # 加密相关
   crypto: ^3.0.3
+  pointycastle: ^3.9.1
   
   # 路径和文件操作
   path_provider: ^2.1.1
   
   # 简单数据存储
   shared_preferences: ^2.2.2
+  
+  # 安全存储（硬件级加密）
+  flutter_secure_storage: ^9.2.2
   
   # 文件选择器
   file_picker: ^8.0.0+1

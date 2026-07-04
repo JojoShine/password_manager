@@ -5,6 +5,7 @@ import 'package:password_manager/pages/home_page.dart';
 import 'package:password_manager/pages/login_page.dart';
 import 'package:password_manager/services/auth_service.dart';
 import 'package:password_manager/services/local_server_service.dart';
+import 'package:password_manager/services/secure_storage_service.dart';
 import 'package:password_manager/services/settings_service.dart';
 import 'package:password_manager/services/theme_service.dart';
 import 'package:password_manager/services/web_storage_service.dart';
@@ -41,6 +42,9 @@ void main() async {
   // print('初始化密码存储服务...');
   await WebStorageService.instance.initialize();
   // print('✅ 密码存储服务初始化完成');
+
+  // 初始化安全存储服务（AES加密密钥管理 + 数据迁移）
+  await SecureStorageService.instance.initialize();
 
   // 初始化设置服务
   await SettingsService.instance.init();
