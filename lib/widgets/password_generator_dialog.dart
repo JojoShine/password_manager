@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../models/category.dart';
 import '../models/password_entry.dart';
+import '../theme/internal_ui_theme.dart';
 
 class PasswordGeneratorDialog extends StatefulWidget {
   const PasswordGeneratorDialog({super.key});
@@ -151,45 +152,50 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 800, maxHeight: 720),
-        child: Column(
-          children: [
-            // 标题栏
-            _buildHeader(),
-            // 内容区域 - 使用两列布局
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 左侧：密码生成配置
-                    Expanded(
-                      flex: 2,
-                      child: Column(
-                        children: [
-                          Expanded(
-                            child: _buildGeneratorConfig(),
+    return InternalUiTheme(
+      child: Builder(
+        builder: (context) => Dialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 800, maxHeight: 720),
+            child: Column(
+              children: [
+                // 标题栏
+                _buildHeader(),
+                // 内容区域 - 使用两列布局
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 左侧：密码生成配置
+                        Expanded(
+                          flex: 2,
+                          child: Column(
+                            children: [
+                              Expanded(
+                                child: _buildGeneratorConfig(),
+                              ),
+                              const SizedBox(height: 16),
+                              _buildPasswordDisplay(),
+                            ],
                           ),
-                          const SizedBox(height: 16),
-                          _buildPasswordDisplay(),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(width: 20),
+                        // 右侧：保存选项
+                        Expanded(
+                          flex: 2,
+                          child: _buildSaveOptions(),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 20),
-                    // 右侧：保存选项
-                    Expanded(
-                      flex: 2,
-                      child: _buildSaveOptions(),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -200,10 +206,12 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+        color: Theme.of(context).brightness == Brightness.dark
+            ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
+            : Theme.of(context).colorScheme.primaryContainer,
         borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
+          topLeft: Radius.circular(12),
+          topRight: Radius.circular(12),
         ),
       ),
       child: Row(
@@ -212,7 +220,7 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.primary,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(6),
             ),
             child: const Icon(
               Icons.generating_tokens,
@@ -262,7 +270,7 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
         ),
@@ -315,18 +323,15 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
           const SizedBox(height: 8),
 
           // 字符类型选项
-          _buildCharacterTypeOption('大写字母 (A-Z)', _includeUppercase,
-              (value) {
+          _buildCharacterTypeOption('大写字母 (A-Z)', _includeUppercase, (value) {
             setState(() => _includeUppercase = value);
             _generatePassword();
           }),
-          _buildCharacterTypeOption('小写字母 (a-z)', _includeLowercase,
-              (value) {
+          _buildCharacterTypeOption('小写字母 (a-z)', _includeLowercase, (value) {
             setState(() => _includeLowercase = value);
             _generatePassword();
           }),
-          _buildCharacterTypeOption('数字 (0-9)', _includeNumbers,
-              (value) {
+          _buildCharacterTypeOption('数字 (0-9)', _includeNumbers, (value) {
             setState(() => _includeNumbers = value);
             _generatePassword();
           }),
@@ -383,7 +388,7 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
         ),
@@ -424,7 +429,7 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surface,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(6),
               border: Border.all(
                 color: Theme.of(context).colorScheme.outline.withOpacity(0.3),
               ),
@@ -527,7 +532,7 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
         ),
@@ -697,7 +702,7 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
                   color: isSelected
                       ? Theme.of(context).colorScheme.primary
                       : Theme.of(context).colorScheme.surface,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(4),
                   border: Border.all(
                     color: isSelected
                         ? Theme.of(context).colorScheme.primary

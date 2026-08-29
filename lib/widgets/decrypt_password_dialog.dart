@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/internal_ui_theme.dart';
+
 /// 解密密码输入对话框
 class DecryptPasswordDialog extends StatefulWidget {
   const DecryptPasswordDialog({super.key});
@@ -22,21 +24,28 @@ class _DecryptPasswordDialogState extends State<DecryptPasswordDialog> {
 
   @override
   Widget build(BuildContext context) {
+    return InternalUiTheme(
+      child: Builder(builder: _buildDialog),
+    );
+  }
+
+  Widget _buildDialog(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
+    final accent = isDark ? Colors.orange.shade600 : colorScheme.primary;
 
     return Dialog(
       backgroundColor: colorScheme.surface,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Container(
         width: 420,
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
           color: colorScheme.surface,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Form(
           key: _formKey,
@@ -49,7 +58,7 @@ class _DecryptPasswordDialogState extends State<DecryptPasswordDialog> {
                 children: [
                   Icon(
                     Icons.lock_outlined,
-                    color: Colors.orange.shade600,
+                    color: accent,
                     size: 24,
                   ),
                   const SizedBox(width: 12),
@@ -83,7 +92,7 @@ class _DecryptPasswordDialogState extends State<DecryptPasswordDialog> {
                   hintText: '请输入主密码',
                   prefixIcon: Icon(
                     Icons.key,
-                    color: Colors.orange.shade600,
+                    color: accent,
                   ),
                   suffixIcon: IconButton(
                     icon: Icon(
@@ -99,20 +108,19 @@ class _DecryptPasswordDialogState extends State<DecryptPasswordDialog> {
                     },
                   ),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(6),
                     borderSide: BorderSide(color: colorScheme.outline),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide:
-                        BorderSide(color: Colors.orange.shade600, width: 2),
+                    borderRadius: BorderRadius.circular(6),
+                    borderSide: BorderSide(color: accent, width: 1.5),
                   ),
                   errorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(6),
                     borderSide: const BorderSide(color: Colors.red, width: 2),
                   ),
                   focusedErrorBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(6),
                     borderSide: const BorderSide(color: Colors.red, width: 2),
                   ),
                   filled: true,
@@ -140,18 +148,23 @@ class _DecryptPasswordDialogState extends State<DecryptPasswordDialog> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.blue.shade50.withOpacity(isDark ? 0.1 : 1.0),
+                  color: isDark
+                      ? Colors.blue.shade50.withOpacity(0.1)
+                      : InternalUiTokens.weakBackground,
                   border: Border.all(
-                      color:
-                          Colors.blue.shade200.withOpacity(isDark ? 0.5 : 1.0)),
-                  borderRadius: BorderRadius.circular(12),
+                    color: isDark
+                        ? Colors.blue.shade200.withOpacity(0.5)
+                        : InternalUiTokens.border,
+                  ),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(
                       Icons.info_outline,
-                      color: Colors.blue.shade700,
+                      color:
+                          isDark ? Colors.blue.shade700 : colorScheme.primary,
                       size: 20,
                     ),
                     const SizedBox(width: 12),
@@ -164,7 +177,9 @@ class _DecryptPasswordDialogState extends State<DecryptPasswordDialog> {
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
                               fontSize: 14,
-                              color: Colors.blue.shade800,
+                              color: isDark
+                                  ? Colors.blue.shade800
+                                  : colorScheme.onSurface,
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -172,7 +187,9 @@ class _DecryptPasswordDialogState extends State<DecryptPasswordDialog> {
                             '请输入导出此文件时使用的主密码。如果密码错误，解密将会失败。',
                             style: TextStyle(
                               fontSize: 13,
-                              color: Colors.blue.shade700,
+                              color: isDark
+                                  ? Colors.blue.shade700
+                                  : colorScheme.onSurfaceVariant,
                             ),
                           ),
                         ],
@@ -198,7 +215,7 @@ class _DecryptPasswordDialogState extends State<DecryptPasswordDialog> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 20, vertical: 12),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(6),
                       ),
                     ),
                     child: Text(
@@ -228,12 +245,12 @@ class _DecryptPasswordDialogState extends State<DecryptPasswordDialog> {
                       style: const TextStyle(fontSize: 14),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange.shade600,
+                      backgroundColor: accent,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
                           horizontal: 20, vertical: 12),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(6),
                       ),
                     ),
                   ),
@@ -275,132 +292,134 @@ Future<String?> showDecryptRetryDialog(
   return showDialog<String>(
     context: context,
     barrierDismissible: false,
-    builder: (context) {
-      final theme = Theme.of(context);
-      final colorScheme = theme.colorScheme;
-      final isDark = theme.brightness == Brightness.dark;
+    builder: (context) => InternalUiTheme(
+      child: Builder(builder: (context) {
+        final theme = Theme.of(context);
+        final colorScheme = theme.colorScheme;
+        final isDark = theme.brightness == Brightness.dark;
 
-      return Dialog(
-        backgroundColor: colorScheme.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Container(
-          width: 380,
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: colorScheme.surface,
-            borderRadius: BorderRadius.circular(16),
+        return Dialog(
+          backgroundColor: colorScheme.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 标题
-              Row(
-                children: [
-                  Icon(
-                    Icons.error_outline,
-                    color: Colors.red.shade600,
-                    size: 24,
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    '解密失败',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      color: colorScheme.onSurface,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // 错误信息
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade50.withOpacity(isDark ? 0.1 : 1.0),
-                  border: Border.all(
-                      color:
-                          Colors.red.shade200.withOpacity(isDark ? 0.5 : 1.0)),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          child: Container(
+            width: 380,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: colorScheme.surface,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 标题
+                Row(
                   children: [
-                    Text(
-                      errorMessage,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.red.shade800,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    Icon(
+                      Icons.error_outline,
+                      color: Colors.red.shade600,
+                      size: 24,
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(width: 12),
                     Text(
-                      '请检查密码是否正确，然后重试。',
+                      '解密失败',
                       style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.red.shade700,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.onSurface,
                       ),
                     ),
                   ],
                 ),
-              ),
+                const SizedBox(height: 16),
 
-              const SizedBox(height: 24),
+                // 错误信息
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50.withOpacity(isDark ? 0.1 : 1.0),
+                    border: Border.all(
+                        color: Colors.red.shade200
+                            .withOpacity(isDark ? 0.5 : 1.0)),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        errorMessage,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.red.shade800,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '请检查密码是否正确，然后重试。',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.red.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
 
-              // 操作按钮
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pop(); // 取消
-                    },
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                const SizedBox(height: 24),
+
+                // 操作按钮
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop(); // 取消
+                      },
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                      child: Text(
+                        '取消',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: colorScheme.onSurface.withOpacity(0.7),
+                        ),
                       ),
                     ),
-                    child: Text(
-                      '取消',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: colorScheme.onSurface.withOpacity(0.7),
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).pop('retry'); // 重试
+                      },
+                      icon: const Icon(Icons.refresh, size: 18),
+                      label: const Text(
+                        '重试',
+                        style: TextStyle(fontSize: 14),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red.shade600,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.of(context).pop('retry'); // 重试
-                    },
-                    icon: const Icon(Icons.refresh, size: 18),
-                    label: const Text(
-                      '重试',
-                      style: TextStyle(fontSize: 14),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red.shade600,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
-      );
-    },
+        );
+      }),
+    ),
   );
 }

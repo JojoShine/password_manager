@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/internal_ui_theme.dart';
+
 /// 导出选项对话框
 class ExportOptionsDialog extends StatefulWidget {
   const ExportOptionsDialog({super.key});
@@ -13,6 +15,12 @@ class _ExportOptionsDialogState extends State<ExportOptionsDialog> {
 
   @override
   Widget build(BuildContext context) {
+    return InternalUiTheme(
+      child: Builder(builder: _buildDialog),
+    );
+  }
+
+  Widget _buildDialog(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
@@ -20,14 +28,14 @@ class _ExportOptionsDialogState extends State<ExportOptionsDialog> {
     return Dialog(
       backgroundColor: colorScheme.surface,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Container(
         width: 480,
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
           color: colorScheme.surface,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -69,12 +77,12 @@ class _ExportOptionsDialogState extends State<ExportOptionsDialog> {
                   _encrypt = false;
                 });
               },
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(8),
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: !_encrypt
-                      ? colorScheme.primaryContainer.withOpacity(0.3)
+                      ? colorScheme.primaryContainer
                       : isDark
                           ? colorScheme.surfaceVariant
                           : Colors.grey.shade50,
@@ -86,7 +94,7 @@ class _ExportOptionsDialogState extends State<ExportOptionsDialog> {
                             : Colors.grey.shade300,
                     width: !_encrypt ? 2 : 1,
                   ),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   children: [
@@ -148,24 +156,28 @@ class _ExportOptionsDialogState extends State<ExportOptionsDialog> {
                   _encrypt = true;
                 });
               },
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(8),
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: _encrypt
-                      ? Colors.green.shade50.withOpacity(isDark ? 0.1 : 1.0)
+                      ? isDark
+                          ? Colors.green.shade50.withOpacity(0.1)
+                          : colorScheme.primaryContainer
                       : isDark
                           ? colorScheme.surfaceVariant
                           : Colors.grey.shade50,
                   border: Border.all(
                     color: _encrypt
-                        ? Colors.green.shade400
+                        ? isDark
+                            ? Colors.green.shade400
+                            : colorScheme.primary
                         : isDark
                             ? colorScheme.outline
                             : Colors.grey.shade300,
                     width: _encrypt ? 2 : 1,
                   ),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   children: [
@@ -177,13 +189,16 @@ class _ExportOptionsDialogState extends State<ExportOptionsDialog> {
                           _encrypt = value!;
                         });
                       },
-                      activeColor: Colors.green.shade600,
+                      activeColor:
+                          isDark ? Colors.green.shade600 : colorScheme.primary,
                     ),
                     const SizedBox(width: 12),
                     Icon(
                       Icons.lock_outlined,
                       color: _encrypt
-                          ? Colors.green.shade600
+                          ? isDark
+                              ? Colors.green.shade600
+                              : colorScheme.primary
                           : colorScheme.onSurface.withOpacity(0.6),
                       size: 20,
                     ),
@@ -225,23 +240,33 @@ class _ExportOptionsDialogState extends State<ExportOptionsDialog> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: _encrypt
-                    ? Colors.green.shade50.withOpacity(isDark ? 0.1 : 1.0)
-                    : Colors.orange.shade50.withOpacity(isDark ? 0.1 : 1.0),
+                    ? isDark
+                        ? Colors.green.shade50.withOpacity(0.1)
+                        : InternalUiTokens.weakBackground
+                    : isDark
+                        ? Colors.orange.shade50.withOpacity(0.1)
+                        : InternalUiTokens.weakBackground,
                 border: Border.all(
                   color: _encrypt
-                      ? Colors.green.shade200.withOpacity(isDark ? 0.5 : 1.0)
-                      : Colors.orange.shade200.withOpacity(isDark ? 0.5 : 1.0),
+                      ? isDark
+                          ? Colors.green.shade200.withOpacity(0.5)
+                          : InternalUiTokens.border
+                      : isDark
+                          ? Colors.orange.shade200.withOpacity(0.5)
+                          : InternalUiTokens.border,
                 ),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(
                     _encrypt ? Icons.info_outline : Icons.warning_outlined,
-                    color: _encrypt
-                        ? Colors.green.shade700
-                        : Colors.orange.shade700,
+                    color: isDark
+                        ? _encrypt
+                            ? Colors.green.shade700
+                            : Colors.orange.shade700
+                        : colorScheme.onSurface,
                     size: 20,
                   ),
                   const SizedBox(width: 12),
@@ -254,9 +279,11 @@ class _ExportOptionsDialogState extends State<ExportOptionsDialog> {
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
-                            color: _encrypt
-                                ? Colors.green.shade800
-                                : Colors.orange.shade800,
+                            color: isDark
+                                ? _encrypt
+                                    ? Colors.green.shade800
+                                    : Colors.orange.shade800
+                                : colorScheme.onSurface,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -266,9 +293,11 @@ class _ExportOptionsDialogState extends State<ExportOptionsDialog> {
                               : '明文文件包含未加密的密码信息，任何人都可以直接读取，请妥善保管。',
                           style: TextStyle(
                             fontSize: 13,
-                            color: _encrypt
-                                ? Colors.green.shade700
-                                : Colors.orange.shade700,
+                            color: isDark
+                                ? _encrypt
+                                    ? Colors.green.shade700
+                                    : Colors.orange.shade700
+                                : colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ],
@@ -292,7 +321,7 @@ class _ExportOptionsDialogState extends State<ExportOptionsDialog> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 20, vertical: 12),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                   ),
                   child: Text(
@@ -319,13 +348,14 @@ class _ExportOptionsDialogState extends State<ExportOptionsDialog> {
                     style: const TextStyle(fontSize: 14),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        _encrypt ? Colors.green.shade600 : colorScheme.primary,
+                    backgroundColor: isDark && _encrypt
+                        ? Colors.green.shade600
+                        : colorScheme.primary,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(
                         horizontal: 20, vertical: 12),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                   ),
                 ),

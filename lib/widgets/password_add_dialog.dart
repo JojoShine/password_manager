@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../models/category.dart';
 import '../models/password_entry.dart';
 import '../services/theme_service.dart';
+import '../theme/internal_ui_theme.dart';
 
 /// 密码添加/编辑弹窗
 class PasswordAddDialog extends StatefulWidget {
@@ -150,73 +151,71 @@ class _PasswordAddDialogState extends State<PasswordAddDialog>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: ThemeService.instance,
-      builder: (context, child) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: ScaleTransition(
-            scale: _scaleAnimation,
-            child: Container(
-              width: MediaQuery.of(context).size.width * 0.9,
-              constraints: BoxConstraints(
-                maxWidth: 500,
-                maxHeight: MediaQuery.of(context).size.height * 0.85,
-              ),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // 标题栏
-                  _buildHeader(),
-                  const SizedBox(height: 16),
-                  // 表单内容
-                  Flexible(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _buildTitleField(),
-                            const SizedBox(height: 16),
-                            _buildUsernameField(),
-                            const SizedBox(height: 16),
-                            _buildPasswordField(),
-                            const SizedBox(height: 16),
-                            _buildWebsiteField(),
-                            const SizedBox(height: 16),
-                            _buildCategorySelector(),
-                            const SizedBox(height: 16),
-                            _buildNotesField(),
-                            const SizedBox(height: 16),
-                            _buildCustomFieldsSection(),
-                            const SizedBox(height: 24),
-                            _buildActionButtons(),
-                          ],
+    return InternalUiTheme(
+      child: Builder(
+        builder: (context) => AnimatedBuilder(
+          animation: ThemeService.instance,
+          builder: (context, child) => Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: ScaleTransition(
+              scale: _scaleAnimation,
+              child: Container(
+                width: MediaQuery.of(context).size.width * 0.9,
+                constraints: BoxConstraints(
+                  maxWidth: 500,
+                  maxHeight: MediaQuery.of(context).size.height * 0.85,
+                ),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Theme.of(context).brightness == Brightness.light
+                      ? Border.all(color: InternalUiTokens.border)
+                      : null,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 标题栏
+                    _buildHeader(),
+                    const SizedBox(height: 16),
+                    // 表单内容
+                    Flexible(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _buildTitleField(),
+                              const SizedBox(height: 16),
+                              _buildUsernameField(),
+                              const SizedBox(height: 16),
+                              _buildPasswordField(),
+                              const SizedBox(height: 16),
+                              _buildWebsiteField(),
+                              const SizedBox(height: 16),
+                              _buildCategorySelector(),
+                              const SizedBox(height: 16),
+                              _buildNotesField(),
+                              const SizedBox(height: 16),
+                              _buildCustomFieldsSection(),
+                              const SizedBox(height: 24),
+                              _buildActionButtons(),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
@@ -225,10 +224,12 @@ class _PasswordAddDialogState extends State<PasswordAddDialog>
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+        color: Theme.of(context).brightness == Brightness.dark
+            ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
+            : Theme.of(context).colorScheme.primaryContainer,
         borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
+          topLeft: Radius.circular(12),
+          topRight: Radius.circular(12),
         ),
       ),
       child: Row(
@@ -237,7 +238,7 @@ class _PasswordAddDialogState extends State<PasswordAddDialog>
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.primary,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(6),
             ),
             child: Icon(
               widget.existingEntry != null ? Icons.edit : Icons.add,
@@ -425,7 +426,7 @@ class _PasswordAddDialogState extends State<PasswordAddDialog>
                   color: isSelected
                       ? Theme.of(context).colorScheme.primary
                       : Theme.of(context).colorScheme.surface,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(4),
                   border: Border.all(
                     color: isSelected
                         ? Theme.of(context).colorScheme.primary
@@ -475,7 +476,7 @@ class _PasswordAddDialogState extends State<PasswordAddDialog>
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(6),
               ),
             ),
             child: const Text('取消'),
@@ -488,7 +489,7 @@ class _PasswordAddDialogState extends State<PasswordAddDialog>
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(6),
               ),
             ),
             child: Text(widget.existingEntry != null ? '保存' : '添加'),
@@ -751,76 +752,81 @@ class _CustomFieldDialogState extends State<_CustomFieldDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 400),
-        padding: const EdgeInsets.all(24),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                widget.initialKey != null ? '编辑自定义字段' : '添加自定义字段',
-                style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              TextFormField(
-                controller: _keyController,
-                decoration: const InputDecoration(
-                  labelText: '字段名称 *',
-                  hintText: '例如：身份证号、备用邮箱等',
-                  prefixIcon: Icon(Icons.label),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return '请输入字段名称';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _valueController,
-                decoration: const InputDecoration(
-                  labelText: '字段值 *',
-                  hintText: '输入字段的值',
-                  prefixIcon: Icon(Icons.text_fields),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return '请输入字段值';
-                  }
-                  return null;
-                },
-                maxLines: 3,
-                minLines: 1,
-              ),
-              const SizedBox(height: 24),
-              Row(
+    return InternalUiTheme(
+      child: Builder(
+        builder: (context) => Dialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 400),
+            padding: const EdgeInsets.all(24),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('取消'),
+                  Text(
+                    widget.initialKey != null ? '编辑自定义字段' : '添加自定义字段',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
                     ),
+                    textAlign: TextAlign.center,
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _save,
-                      child: Text(widget.initialKey != null ? '保存' : '添加'),
+                  const SizedBox(height: 24),
+                  TextFormField(
+                    controller: _keyController,
+                    decoration: const InputDecoration(
+                      labelText: '字段名称 *',
+                      hintText: '例如：身份证号、备用邮箱等',
+                      prefixIcon: Icon(Icons.label),
                     ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return '请输入字段名称';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _valueController,
+                    decoration: const InputDecoration(
+                      labelText: '字段值 *',
+                      hintText: '输入字段的值',
+                      prefixIcon: Icon(Icons.text_fields),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return '请输入字段值';
+                      }
+                      return null;
+                    },
+                    maxLines: 3,
+                    minLines: 1,
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('取消'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _save,
+                          child: Text(widget.initialKey != null ? '保存' : '添加'),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
+            ),
           ),
         ),
       ),

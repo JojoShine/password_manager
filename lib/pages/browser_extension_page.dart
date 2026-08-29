@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
+import '../theme/internal_ui_theme.dart';
+
 class BrowserExtensionPage extends StatefulWidget {
   const BrowserExtensionPage({Key? key}) : super(key: key);
 
@@ -17,8 +19,13 @@ class _BrowserExtensionPageState extends State<BrowserExtensionPage> {
 
   @override
   Widget build(BuildContext context) {
+    return InternalUiTheme(
+      child: Builder(builder: _buildPage),
+    );
+  }
+
+  Widget _buildPage(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         title: const Text('浏览器扩展'),
         backgroundColor: Colors.transparent,
@@ -58,7 +65,7 @@ class _BrowserExtensionPageState extends State<BrowserExtensionPage> {
           height: 48,
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.primary,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(6),
           ),
           child: const Icon(
             Icons.extension,
@@ -114,155 +121,139 @@ class _BrowserExtensionPageState extends State<BrowserExtensionPage> {
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: features
-              .map((feature) => Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: (feature['color'] as Color).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: (feature['color'] as Color).withOpacity(0.3),
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          feature['icon'] as IconData,
-                          color: feature['color'] as Color,
-                          size: 16,
+          children: features.map((feature) {
+            final originalColor = feature['color'] as Color;
+            final featureColor = Theme.of(context).brightness == Brightness.dark
+                ? originalColor
+                : Theme.of(context).colorScheme.onSurfaceVariant;
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: featureColor.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: featureColor.withValues(alpha: 0.3),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    feature['icon'] as IconData,
+                    color: featureColor,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    feature['title'] as String,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: featureColor,
+                          fontWeight: FontWeight.w500,
                         ),
-                        const SizedBox(width: 6),
-                        Text(
-                          feature['title'] as String,
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: feature['color'] as Color,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                        ),
-                      ],
-                    ),
-                  ))
-              .toList(),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
         ),
       ],
     );
   }
 
   Widget _buildDownloadCard() {
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Theme.of(context).colorScheme.primary.withOpacity(0.05),
-            Theme.of(context).colorScheme.primary.withOpacity(0.02),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.download_rounded,
-                color: Theme.of(context).colorScheme.primary,
-                size: 24,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '下载安装包',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '支持 Chrome、Edge 等 Chromium 浏览器',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+      child: InternalSurface(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.download_rounded,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 24,
                 ),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            height: 44,
-            child: ElevatedButton(
-              onPressed: _isDownloading ? null : _downloadExtension,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                const SizedBox(width: 8),
+                Text(
+                  '下载安装包',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                 ),
-              ),
-              child: _isDownloading
-                  ? const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        ),
-                        SizedBox(width: 8),
-                        Text('下载中...', style: TextStyle(fontSize: 14)),
-                      ],
-                    )
-                  : const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.download_rounded, size: 18),
-                        SizedBox(width: 8),
-                        Text('立即下载',
-                            style: TextStyle(
-                                fontSize: 14, fontWeight: FontWeight.w500)),
-                      ],
-                    ),
+              ],
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              '支持 Chrome、Edge 等 Chromium 浏览器',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: ElevatedButton(
+                onPressed: _isDownloading ? null : _downloadExtension,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+                child: _isDownloading
+                    ? const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          ),
+                          SizedBox(width: 8),
+                          Text('下载中...', style: TextStyle(fontSize: 14)),
+                        ],
+                      )
+                    : const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.download_rounded, size: 18),
+                          SizedBox(width: 8),
+                          Text('立即下载',
+                              style: TextStyle(
+                                  fontSize: 14, fontWeight: FontWeight.w500)),
+                        ],
+                      ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildNotice() {
-    return Container(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final noticeColor = isDark
+        ? Colors.amber.shade700
+        : Theme.of(context).colorScheme.onSurface;
+    return InternalSurface(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.amber.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.amber.withOpacity(0.3),
-          width: 1,
-        ),
-      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
             Icons.info_outline,
-            color: Colors.amber.shade700,
+            color: noticeColor,
             size: 20,
           ),
           const SizedBox(width: 12),
@@ -274,14 +265,14 @@ class _BrowserExtensionPageState extends State<BrowserExtensionPage> {
                   '使用须知',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w600,
-                        color: Colors.amber.shade700,
+                        color: noticeColor,
                       ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   '需同时运行密码管理器应用\n仅支持 Chromium 内核浏览器\n请勿删除解压后的文件夹',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.amber.shade800,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         height: 1.4,
                       ),
                 ),
@@ -327,7 +318,9 @@ class _BrowserExtensionPageState extends State<BrowserExtensionPage> {
                   height: 28,
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.primary,
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(
+                      Theme.of(context).brightness == Brightness.dark ? 14 : 4,
+                    ),
                   ),
                   child: Center(
                     child: Text(
@@ -369,12 +362,8 @@ class _BrowserExtensionPageState extends State<BrowserExtensionPage> {
       {'icon': Icons.save_alt, 'text': '自动提示保存新密码'},
     ];
 
-    return Container(
+    return InternalSurface(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(12),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
