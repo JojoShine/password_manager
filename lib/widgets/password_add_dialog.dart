@@ -156,9 +156,7 @@ class _PasswordAddDialogState extends State<PasswordAddDialog>
         builder: (context) => AnimatedBuilder(
           animation: ThemeService.instance,
           builder: (context, child) => Dialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+            shape: InternalUiTheme.dialogShape(context),
             child: ScaleTransition(
               scale: _scaleAnimation,
               child: Container(
@@ -169,7 +167,7 @@ class _PasswordAddDialogState extends State<PasswordAddDialog>
                 ),
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.surface,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: InternalUiTheme.dialogRadius(context),
                   border: Theme.of(context).brightness == Brightness.light
                       ? Border.all(color: InternalUiTokens.border)
                       : null,
@@ -231,15 +229,22 @@ class _PasswordAddDialogState extends State<PasswordAddDialog>
       padding: const EdgeInsets.fromLTRB(24, 20, 16, 18),
       decoration: BoxDecoration(
         color: isLight
-            ? theme.colorScheme.surface
+            ? InternalUiTokens.secondary
             : theme.colorScheme.primary.withValues(alpha: 0.1),
         border: isLight
-            ? const Border(bottom: BorderSide(color: InternalUiTokens.border))
+            ? const Border(
+                bottom: BorderSide(
+                  color: InternalUiTokens.border,
+                  width: 2,
+                ),
+              )
             : null,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(12),
-          topRight: Radius.circular(12),
-        ),
+        borderRadius: isLight
+            ? BorderRadius.zero
+            : const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
       ),
       child: Row(
         children: [
@@ -247,11 +252,13 @@ class _PasswordAddDialogState extends State<PasswordAddDialog>
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: isLight
-                  ? InternalUiTokens.weakBackground
+                  ? InternalUiTokens.surface
                   : theme.colorScheme.primary,
-              borderRadius: BorderRadius.circular(6),
-              border:
-                  isLight ? Border.all(color: InternalUiTokens.border) : null,
+              borderRadius:
+                  isLight ? BorderRadius.zero : BorderRadius.circular(6),
+              border: isLight
+                  ? Border.all(color: InternalUiTokens.border, width: 2)
+                  : null,
             ),
             child: Icon(
               widget.existingEntry != null ? Icons.edit : Icons.add,
@@ -269,7 +276,7 @@ class _PasswordAddDialogState extends State<PasswordAddDialog>
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.onSurface,
+                    color: isLight ? Colors.white : theme.colorScheme.onSurface,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -277,7 +284,9 @@ class _PasswordAddDialogState extends State<PasswordAddDialog>
                   widget.existingEntry != null ? '修改密码信息' : '创建新的密码条目',
                   style: TextStyle(
                     fontSize: 14,
-                    color: theme.colorScheme.onSurfaceVariant,
+                    color: isLight
+                        ? Colors.white.withValues(alpha: 0.78)
+                        : theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],
@@ -287,7 +296,8 @@ class _PasswordAddDialogState extends State<PasswordAddDialog>
             onPressed: () => Navigator.of(context).pop(),
             icon: Icon(
               Icons.close,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              color:
+                  isLight ? Colors.white : theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ],
@@ -451,7 +461,10 @@ class _PasswordAddDialogState extends State<PasswordAddDialog>
                   color: isSelected
                       ? Theme.of(context).colorScheme.primary
                       : Theme.of(context).colorScheme.surface,
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: InternalUiTheme.dialogRadius(
+                    context,
+                    darkRadius: 4,
+                  ),
                   border: Border.all(
                     color: isSelected
                         ? Theme.of(context).colorScheme.primary
@@ -501,7 +514,10 @@ class _PasswordAddDialogState extends State<PasswordAddDialog>
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: InternalUiTheme.dialogRadius(
+                  context,
+                  darkRadius: 6,
+                ),
               ),
             ),
             child: const Text('取消'),
@@ -514,7 +530,10 @@ class _PasswordAddDialogState extends State<PasswordAddDialog>
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: InternalUiTheme.dialogRadius(
+                  context,
+                  darkRadius: 6,
+                ),
               ),
             ),
             child: Text(widget.existingEntry != null ? '保存' : '添加'),
@@ -559,7 +578,10 @@ class _PasswordAddDialogState extends State<PasswordAddDialog>
             decoration: BoxDecoration(
               color:
                   Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: InternalUiTheme.dialogRadius(
+                context,
+                darkRadius: 8,
+              ),
               border: Border.all(
                 color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
               ),
@@ -605,7 +627,10 @@ class _PasswordAddDialogState extends State<PasswordAddDialog>
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: InternalUiTheme.dialogRadius(
+          context,
+          darkRadius: 12,
+        ),
         border: Border.all(
           color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
         ),
@@ -780,8 +805,7 @@ class _CustomFieldDialogState extends State<_CustomFieldDialog> {
     return InternalUiTheme(
       child: Builder(
         builder: (context) => Dialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: InternalUiTheme.dialogShape(context),
           child: Container(
             constraints: const BoxConstraints(maxWidth: 400),
             padding: const EdgeInsets.all(24),

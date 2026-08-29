@@ -1262,15 +1262,14 @@ class _HomePageState extends State<HomePage> {
 
         return Dialog(
           backgroundColor: colorScheme.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
+          shape: InternalUiTheme.dialogShape(context, darkRadius: 16),
           child: Container(
             width: 420,
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: colorScheme.surface,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius:
+                  InternalUiTheme.dialogRadius(context, darkRadius: 16),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -1485,6 +1484,12 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    return InternalUiTheme(
+      child: Builder(builder: _buildHome),
+    );
+  }
+
+  Widget _buildHome(BuildContext context) {
     return AnimatedBuilder(
       animation: Listenable.merge([
         ThemeService.instance,
@@ -1495,7 +1500,7 @@ class _HomePageState extends State<HomePage> {
           appBar: AppBar(
             backgroundColor: ThemeService.instance.isDark
                 ? const Color(0xFF121212)
-                : Colors.white, // 明确设置背景色
+                : InternalUiTokens.surface,
             scrolledUnderElevation: 0, // 防止滚动时背景色变化
             title: Row(
               children: [
@@ -1503,17 +1508,20 @@ class _HomePageState extends State<HomePage> {
                   width: 32,
                   height: 32,
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+                    borderRadius: ThemeService.instance.isDark
+                        ? BorderRadius.circular(8)
+                        : BorderRadius.zero,
+                    border: ThemeService.instance.isDark
+                        ? null
+                        : Border.all(
+                            color: InternalUiTokens.border,
+                            width: 2,
+                          ),
                   ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: ThemeService.instance.isDark
+                        ? BorderRadius.circular(8)
+                        : BorderRadius.zero,
                     child: SettingsService.instance.hasCustomLogo
                         ? Image.file(
                             File(SettingsService.instance.getLogoImagePath()),
@@ -1522,7 +1530,9 @@ class _HomePageState extends State<HomePage> {
                               return Container(
                                 decoration: BoxDecoration(
                                   color: Theme.of(context).colorScheme.primary,
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: ThemeService.instance.isDark
+                                      ? BorderRadius.circular(8)
+                                      : BorderRadius.zero,
                                 ),
                                 child: const Icon(
                                   Icons.security,
@@ -1539,7 +1549,9 @@ class _HomePageState extends State<HomePage> {
                               return Container(
                                 decoration: BoxDecoration(
                                   color: Theme.of(context).colorScheme.primary,
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: ThemeService.instance.isDark
+                                      ? BorderRadius.circular(8)
+                                      : BorderRadius.zero,
                                 ),
                                 child: const Icon(
                                   Icons.security,
@@ -1565,7 +1577,12 @@ class _HomePageState extends State<HomePage> {
                           .colorScheme
                           .secondaryContainer
                           .withOpacity(0.7),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: ThemeService.instance.isDark
+                          ? BorderRadius.circular(12)
+                          : BorderRadius.zero,
+                      border: ThemeService.instance.isDark
+                          ? null
+                          : Border.all(color: InternalUiTokens.border),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -1656,21 +1673,21 @@ class _HomePageState extends State<HomePage> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        boxShadow: [
-          BoxShadow(
-            color: ThemeService.instance.isDark
-                ? Theme.of(context).colorScheme.shadow.withOpacity(0.1)
-                : Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        boxShadow: ThemeService.instance.isDark
+            ? [
+                BoxShadow(
+                  color: Theme.of(context).colorScheme.shadow.withOpacity(0.1),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : null,
         border: ThemeService.instance.isDark
             ? null
             : Border(
                 bottom: BorderSide(
-                  color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
-                  width: 0.5,
+                  color: InternalUiTokens.border,
+                  width: 2,
                 ),
               ),
       ),
@@ -1695,8 +1712,15 @@ class _HomePageState extends State<HomePage> {
                         )
                       : null,
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide.none,
+                    borderRadius: ThemeService.instance.isDark
+                        ? BorderRadius.circular(16)
+                        : BorderRadius.zero,
+                    borderSide: ThemeService.instance.isDark
+                        ? BorderSide.none
+                        : const BorderSide(
+                            color: InternalUiTokens.border,
+                            width: 2,
+                          ),
                   ),
                   filled: true,
                   fillColor: ThemeService.instance.isDark
@@ -1729,7 +1753,15 @@ class _HomePageState extends State<HomePage> {
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: ThemeService.instance.isDark
+                      ? BorderRadius.circular(12)
+                      : BorderRadius.zero,
+                  side: ThemeService.instance.isDark
+                      ? BorderSide.none
+                      : const BorderSide(
+                          color: InternalUiTokens.border,
+                          width: 2,
+                        ),
                 ),
               ),
             ),
@@ -1747,7 +1779,15 @@ class _HomePageState extends State<HomePage> {
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: ThemeService.instance.isDark
+                      ? BorderRadius.circular(12)
+                      : BorderRadius.zero,
+                  side: ThemeService.instance.isDark
+                      ? BorderSide.none
+                      : const BorderSide(
+                          color: InternalUiTokens.border,
+                          width: 2,
+                        ),
                 ),
               ),
             ),
@@ -1764,7 +1804,7 @@ class _HomePageState extends State<HomePage> {
       decoration: BoxDecoration(
         color: ThemeService.instance.isDark
             ? Theme.of(context).colorScheme.surface
-            : Theme.of(context).colorScheme.surfaceVariant,
+            : InternalUiTokens.weakBackground,
         border: Border(
           right: BorderSide(
             color: Theme.of(context).colorScheme.outline.withOpacity(0.3),
@@ -1802,9 +1842,19 @@ class _HomePageState extends State<HomePage> {
                   margin:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: ThemeService.instance.isDark
+                        ? BorderRadius.circular(12)
+                        : BorderRadius.zero,
                     color: isSelected
-                        ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
+                        ? ThemeService.instance.isDark
+                            ? Theme.of(context)
+                                .colorScheme
+                                .primary
+                                .withOpacity(0.1)
+                            : Theme.of(context).colorScheme.primary
+                        : null,
+                    border: !ThemeService.instance.isDark && isSelected
+                        ? Border.all(color: InternalUiTokens.border, width: 2)
                         : null,
                   ),
                   child: ListTile(
@@ -1825,7 +1875,9 @@ class _HomePageState extends State<HomePage> {
                         fontWeight:
                             isSelected ? FontWeight.w600 : FontWeight.normal,
                         color: isSelected
-                            ? Theme.of(context).colorScheme.primary
+                            ? ThemeService.instance.isDark
+                                ? Theme.of(context).colorScheme.primary
+                                : Colors.white
                             : Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
@@ -1835,7 +1887,9 @@ class _HomePageState extends State<HomePage> {
                                 horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
                               color: isSelected
-                                  ? Theme.of(context).colorScheme.primary
+                                  ? ThemeService.instance.isDark
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Colors.white
                                   : Theme.of(context)
                                       .colorScheme
                                       .outline
@@ -2048,184 +2102,202 @@ class _HomePageState extends State<HomePage> {
         final password = filteredPasswords[index];
         final theme = Theme.of(context);
         final isLight = theme.brightness == Brightness.light;
-        return Card(
-          margin: const EdgeInsets.only(bottom: 10),
-          elevation: 0,
-          shadowColor: Colors.transparent,
-          surfaceTintColor: Colors.transparent,
-          color: isLight ? InternalUiTokens.surface : theme.colorScheme.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(isLight ? 8 : 12),
-            side: BorderSide(
-              color: isLight
-                  ? InternalUiTokens.border
-                  : theme.colorScheme.outline.withOpacity(0.2),
-              width: isLight ? 1 : 0.5,
-            ),
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            boxShadow: isLight
+                ? const [
+                    BoxShadow(
+                      color: InternalUiTokens.border,
+                      blurRadius: 0,
+                      offset: Offset(3, 3),
+                    ),
+                  ]
+                : null,
           ),
-          child: ListTile(
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-            leading: Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
+          child: Card(
+            margin: EdgeInsets.zero,
+            elevation: 0,
+            shadowColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            color:
+                isLight ? InternalUiTokens.surface : theme.colorScheme.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius:
+                  isLight ? BorderRadius.zero : BorderRadius.circular(12),
+              side: BorderSide(
                 color: isLight
-                    ? InternalUiTokens.weakBackground
-                    : theme.colorScheme.primary,
-                borderRadius: BorderRadius.circular(isLight ? 6 : 10),
-                border:
-                    isLight ? Border.all(color: InternalUiTokens.border) : null,
+                    ? InternalUiTokens.border
+                    : theme.colorScheme.outline.withOpacity(0.2),
+                width: isLight ? 2 : 0.5,
               ),
-              child: Center(
-                child: Text(
-                  password.title.isNotEmpty
-                      ? password.title[0].toUpperCase()
-                      : '?',
-                  style: TextStyle(
-                    color: isLight ? InternalUiTokens.ink : Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+            ),
+            child: ListTile(
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              leading: Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: isLight
+                      ? InternalUiTokens.weakBackground
+                      : theme.colorScheme.primary,
+                  borderRadius:
+                      isLight ? BorderRadius.zero : BorderRadius.circular(10),
+                  border: isLight
+                      ? Border.all(color: InternalUiTokens.border, width: 2)
+                      : null,
+                ),
+                child: Center(
+                  child: Text(
+                    password.title.isNotEmpty
+                        ? password.title[0].toUpperCase()
+                        : '?',
+                    style: TextStyle(
+                      color: isLight ? InternalUiTokens.ink : Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
                   ),
                 ),
               ),
-            ),
-            title: Text(
-              password.title,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 15,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(height: 2),
-                Text(
-                  password.username,
-                  style: TextStyle(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    fontSize: 13,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+              title: Text(
+                password.title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
                 ),
-                const SizedBox(height: 2),
-                Row(
-                  children: [
-                    if (password.website?.isNotEmpty == true) ...[
-                      Flexible(
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 2),
+                  Text(
+                    password.username,
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontSize: 13,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      if (password.website?.isNotEmpty == true) ...[
+                        Flexible(
+                          child: Text(
+                            password.website!,
+                            style: TextStyle(
+                              color: isLight
+                                  ? InternalUiTokens.muted
+                                  : theme.colorScheme.primary,
+                              fontSize: 11,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: isLight
+                              ? InternalUiTokens.weakBackground
+                              : theme.colorScheme.secondaryContainer,
+                          borderRadius: BorderRadius.circular(isLight ? 4 : 6),
+                        ),
                         child: Text(
-                          password.website!,
+                          password.category ?? '其他',
                           style: TextStyle(
+                            fontSize: 10,
                             color: isLight
                                 ? InternalUiTokens.muted
-                                : theme.colorScheme.primary,
-                            fontSize: 11,
+                                : theme.colorScheme.onSecondaryContainer,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const SizedBox(width: 8),
                     ],
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 1),
-                      decoration: BoxDecoration(
-                        color: isLight
-                            ? InternalUiTokens.weakBackground
-                            : theme.colorScheme.secondaryContainer,
-                        borderRadius: BorderRadius.circular(isLight ? 4 : 6),
-                      ),
-                      child: Text(
-                        password.category ?? '其他',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: isLight
-                              ? InternalUiTokens.muted
-                              : theme.colorScheme.onSecondaryContainer,
-                        ),
+                  ),
+                ],
+              ),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (password.isFavorite)
+                    const Padding(
+                      padding: EdgeInsets.only(right: 4),
+                      child: Icon(
+                        Icons.star,
+                        color: Colors.amber,
+                        size: 16,
                       ),
                     ),
-                  ],
-                ),
-              ],
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (password.isFavorite)
-                  const Padding(
-                    padding: EdgeInsets.only(right: 4),
-                    child: Icon(
-                      Icons.star,
-                      color: Colors.amber,
-                      size: 16,
+                  // 查看按钮
+                  IconButton(
+                    onPressed: () => _showPasswordViewDialog(password),
+                    icon: Icon(
+                      Icons.visibility,
+                      size: 18,
+                      color: isLight
+                          ? InternalUiTokens.muted
+                          : theme.colorScheme.primary,
                     ),
+                    tooltip: '查看',
+                    constraints:
+                        const BoxConstraints(minWidth: 32, minHeight: 32),
+                    padding: const EdgeInsets.all(4),
                   ),
-                // 查看按钮
-                IconButton(
-                  onPressed: () => _showPasswordViewDialog(password),
-                  icon: Icon(
-                    Icons.visibility,
-                    size: 18,
-                    color: isLight
-                        ? InternalUiTokens.muted
-                        : theme.colorScheme.primary,
+                  // 编辑按钮
+                  IconButton(
+                    onPressed: () => _showEditPasswordDialog(password, index),
+                    icon: Icon(
+                      Icons.edit,
+                      size: 18,
+                      color: isLight
+                          ? InternalUiTokens.muted
+                          : theme.colorScheme.secondary,
+                    ),
+                    tooltip: '编辑',
+                    constraints:
+                        const BoxConstraints(minWidth: 32, minHeight: 32),
+                    padding: const EdgeInsets.all(4),
                   ),
-                  tooltip: '查看',
-                  constraints:
-                      const BoxConstraints(minWidth: 32, minHeight: 32),
-                  padding: const EdgeInsets.all(4),
-                ),
-                // 编辑按钮
-                IconButton(
-                  onPressed: () => _showEditPasswordDialog(password, index),
-                  icon: Icon(
-                    Icons.edit,
-                    size: 18,
-                    color: isLight
-                        ? InternalUiTokens.muted
-                        : theme.colorScheme.secondary,
+                  // 分享按钮
+                  IconButton(
+                    onPressed: () => _shareOnePassword(password),
+                    icon: Icon(
+                      Icons.share,
+                      size: 18,
+                      color: isLight
+                          ? InternalUiTokens.muted
+                          : theme.colorScheme.tertiary,
+                    ),
+                    tooltip: '分享',
+                    constraints:
+                        const BoxConstraints(minWidth: 32, minHeight: 32),
+                    padding: const EdgeInsets.all(4),
                   ),
-                  tooltip: '编辑',
-                  constraints:
-                      const BoxConstraints(minWidth: 32, minHeight: 32),
-                  padding: const EdgeInsets.all(4),
-                ),
-                // 分享按钮
-                IconButton(
-                  onPressed: () => _shareOnePassword(password),
-                  icon: Icon(
-                    Icons.share,
-                    size: 18,
-                    color: isLight
-                        ? InternalUiTokens.muted
-                        : theme.colorScheme.tertiary,
+                  // 删除按钮
+                  IconButton(
+                    onPressed: () => _showDeleteConfirmDialog(password, index),
+                    icon: const Icon(
+                      Icons.delete,
+                      size: 18,
+                      color: Colors.red,
+                    ),
+                    tooltip: '删除',
+                    constraints:
+                        const BoxConstraints(minWidth: 32, minHeight: 32),
+                    padding: const EdgeInsets.all(4),
                   ),
-                  tooltip: '分享',
-                  constraints:
-                      const BoxConstraints(minWidth: 32, minHeight: 32),
-                  padding: const EdgeInsets.all(4),
-                ),
-                // 删除按钮
-                IconButton(
-                  onPressed: () => _showDeleteConfirmDialog(password, index),
-                  icon: const Icon(
-                    Icons.delete,
-                    size: 18,
-                    color: Colors.red,
-                  ),
-                  tooltip: '删除',
-                  constraints:
-                      const BoxConstraints(minWidth: 32, minHeight: 32),
-                  padding: const EdgeInsets.all(4),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );
@@ -2267,7 +2339,7 @@ class _PasswordViewDialogState extends State<_PasswordViewDialog> {
     final maxHeight = screenHeight * 0.85; // 使用屏幕高度的85%
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: InternalUiTheme.dialogShape(context, darkRadius: 20),
       child: Container(
         constraints: BoxConstraints(
           maxWidth: 600, // 增加宽度

@@ -1,39 +1,64 @@
 import 'package:flutter/material.dart';
 
-/// Light-mode tokens for secondary pages and dialogs.
-///
-/// The main password list intentionally keeps its existing visual language.
+/// Light-mode tokens for the approved restrained 16-bit interface.
 abstract final class InternalUiTokens {
-  static const background = Color(0xFFF4F4F1);
-  static const surface = Color(0xFFFBFBFA);
-  static const ink = Color(0xFF181817);
-  static const muted = Color(0xFF6F6F6B);
-  static const border = Color(0xFFD8D8D3);
-  static const weakBackground = Color(0xFFEFEFEC);
-  static const danger = Color(0xFFB42318);
-  static const success = Color(0xFF257A4A);
+  static const background = Color(0xFFE8E0CF);
+  static const surface = Color(0xFFFFFAEA);
+  static const ink = Color(0xFF1D1C19);
+  static const muted = Color(0xFF6B675E);
+  static const border = Color(0xFF3A3832);
+  static const weakBackground = Color(0xFFE1D8C5);
+  static const primary = Color(0xFF285EAE);
+  static const secondary = Color(0xFFB33A31);
+  static const highlight = Color(0xFFD6A51F);
+  static const danger = Color(0xFFB33A31);
+  static const success = Color(0xFF427A45);
 
-  static const controlRadius = 6.0;
-  static const surfaceRadius = 8.0;
-  static const dialogRadius = 12.0;
-  static const tagRadius = 4.0;
+  static const controlRadius = 0.0;
+  static const surfaceRadius = 0.0;
+  static const dialogRadius = 0.0;
+  static const tagRadius = 0.0;
 }
 
-/// Applies the restrained monochrome style only to internal pages.
+/// Applies the pixel visual language without changing the dark theme direction.
 class InternalUiTheme extends StatelessWidget {
   const InternalUiTheme({required this.child, super.key});
 
   final Widget child;
 
+  static RoundedRectangleBorder dialogShape(
+    BuildContext context, {
+    double darkRadius = 12,
+  }) {
+    if (Theme.of(context).brightness == Brightness.dark) {
+      return RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(darkRadius),
+      );
+    }
+    return const RoundedRectangleBorder(
+      borderRadius: BorderRadius.zero,
+      side: BorderSide(color: InternalUiTokens.border, width: 2),
+    );
+  }
+
+  static BorderRadius dialogRadius(
+    BuildContext context, {
+    double darkRadius = 12,
+  }) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? BorderRadius.circular(darkRadius)
+        : BorderRadius.zero;
+  }
+
   static ThemeData resolve(ThemeData base) {
     if (base.brightness == Brightness.dark) return base;
 
     final colors = base.colorScheme.copyWith(
-      primary: InternalUiTokens.ink,
+      primary: InternalUiTokens.primary,
       onPrimary: Colors.white,
       primaryContainer: InternalUiTokens.weakBackground,
       onPrimaryContainer: InternalUiTokens.ink,
-      secondary: InternalUiTokens.muted,
+      secondary: InternalUiTokens.secondary,
       onSecondary: Colors.white,
       secondaryContainer: InternalUiTokens.weakBackground,
       onSecondaryContainer: InternalUiTokens.ink,
@@ -43,17 +68,39 @@ class InternalUiTheme extends StatelessWidget {
       outline: InternalUiTokens.border,
       error: InternalUiTokens.danger,
     );
-    final controlShape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(InternalUiTokens.controlRadius),
+    const pixelBorder = BorderSide(color: InternalUiTokens.border, width: 2);
+    const controlShape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.zero,
+      side: pixelBorder,
     );
     final inputBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(InternalUiTokens.controlRadius),
-      borderSide: const BorderSide(color: InternalUiTokens.border),
+      borderRadius: BorderRadius.zero,
+      borderSide: pixelBorder,
+    );
+
+    final pixelTextTheme = base.textTheme.copyWith(
+      headlineSmall: base.textTheme.headlineSmall?.copyWith(
+        fontWeight: FontWeight.w800,
+        letterSpacing: 0.4,
+      ),
+      titleLarge: base.textTheme.titleLarge?.copyWith(
+        fontWeight: FontWeight.w800,
+        letterSpacing: 0.3,
+      ),
+      titleMedium: base.textTheme.titleMedium?.copyWith(
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.2,
+      ),
+      labelLarge: base.textTheme.labelLarge?.copyWith(
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.4,
+      ),
     );
 
     return base.copyWith(
       colorScheme: colors,
       scaffoldBackgroundColor: InternalUiTokens.background,
+      textTheme: pixelTextTheme,
       appBarTheme: base.appBarTheme.copyWith(
         backgroundColor: InternalUiTokens.background,
         foregroundColor: InternalUiTokens.ink,
@@ -67,20 +114,24 @@ class InternalUiTheme extends StatelessWidget {
         shadowColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.zero,
+          side: pixelBorder,
+        ),
       ),
-      dialogTheme: DialogThemeData(
+      dialogTheme: const DialogThemeData(
         backgroundColor: InternalUiTokens.surface,
         elevation: 0,
         shadowColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(InternalUiTokens.dialogRadius),
-          side: const BorderSide(color: InternalUiTokens.border),
+          borderRadius: BorderRadius.zero,
+          side: pixelBorder,
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: InternalUiTokens.ink,
+          backgroundColor: InternalUiTokens.primary,
           foregroundColor: Colors.white,
           disabledBackgroundColor: InternalUiTokens.weakBackground,
           disabledForegroundColor: InternalUiTokens.muted,
@@ -93,21 +144,21 @@ class InternalUiTheme extends StatelessWidget {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: InternalUiTokens.ink,
-          side: const BorderSide(color: InternalUiTokens.border),
+          side: pixelBorder,
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
           shape: controlShape,
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: InternalUiTokens.ink,
+          foregroundColor: InternalUiTokens.primary,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           shape: controlShape,
         ),
       ),
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(
-          foregroundColor: InternalUiTokens.ink,
+          foregroundColor: InternalUiTokens.primary,
           shape: controlShape,
         ),
       ),
@@ -118,8 +169,8 @@ class InternalUiTheme extends StatelessWidget {
         enabledBorder: inputBorder,
         focusedBorder: inputBorder.copyWith(
           borderSide: const BorderSide(
-            color: InternalUiTokens.ink,
-            width: 1.5,
+            color: InternalUiTokens.primary,
+            width: 3,
           ),
         ),
         errorBorder: inputBorder.copyWith(
@@ -132,10 +183,28 @@ class InternalUiTheme extends StatelessWidget {
           ),
         ),
         labelStyle: const TextStyle(color: InternalUiTokens.muted),
-        floatingLabelStyle: const TextStyle(color: InternalUiTokens.ink),
+        floatingLabelStyle: const TextStyle(color: InternalUiTokens.primary),
         hintStyle: const TextStyle(color: InternalUiTokens.muted),
       ),
       dividerColor: InternalUiTokens.border,
+      checkboxTheme: CheckboxThemeData(
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        side: pixelBorder,
+        fillColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? InternalUiTokens.highlight
+              : InternalUiTokens.surface,
+        ),
+        checkColor: const WidgetStatePropertyAll(InternalUiTokens.ink),
+      ),
+      sliderTheme: base.sliderTheme.copyWith(
+        activeTrackColor: InternalUiTokens.ink,
+        inactiveTrackColor: InternalUiTokens.weakBackground,
+        thumbColor: InternalUiTokens.primary,
+        overlayColor: Colors.transparent,
+        trackHeight: 6,
+        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+      ),
     );
   }
 
@@ -145,7 +214,7 @@ class InternalUiTheme extends StatelessWidget {
   }
 }
 
-/// Border-led surface for light mode; dark mode keeps the existing treatment.
+/// Crisp framed panel with a hard, blur-free pixel offset in light mode.
 class InternalSurface extends StatelessWidget {
   const InternalSurface({
     required this.child,
@@ -166,12 +235,23 @@ class InternalSurface extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(radius),
+        borderRadius:
+            isDark ? BorderRadius.circular(radius) : BorderRadius.zero,
         border: Border.all(
           color: isDark
               ? theme.colorScheme.outline.withValues(alpha: 0.35)
               : InternalUiTokens.border,
+          width: isDark ? 1 : 2,
         ),
+        boxShadow: isDark
+            ? null
+            : const [
+                BoxShadow(
+                  color: InternalUiTokens.border,
+                  blurRadius: 0,
+                  offset: Offset(3, 3),
+                ),
+              ],
       ),
       child: Padding(padding: padding, child: child),
     );

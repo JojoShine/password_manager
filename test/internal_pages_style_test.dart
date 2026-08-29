@@ -28,7 +28,7 @@ void main() {
     expect(find.byType(InternalSurface), findsNWidgets(3));
   });
 
-  testWidgets('internal dialogs use the compact dialog radius', (tester) async {
+  testWidgets('internal dialogs use square pixel frames', (tester) async {
     tester.view.physicalSize = const Size(1400, 1000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -47,8 +47,9 @@ void main() {
       final shape = widget.shape! as RoundedRectangleBorder;
       expect(
         shape.borderRadius,
-        BorderRadius.circular(InternalUiTokens.dialogRadius),
+        BorderRadius.zero,
       );
+      expect(shape.side.width, 2);
     }
   });
 }

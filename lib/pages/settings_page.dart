@@ -413,7 +413,10 @@ class _SettingsPageState extends State<SettingsPage> {
                         width: 80,
                         height: 80,
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: InternalUiTheme.dialogRadius(
+                            context,
+                            darkRadius: 6,
+                          ),
                           border: Border.all(
                             color: Theme.of(context)
                                 .colorScheme
@@ -422,7 +425,10 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
                         ),
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(5),
+                          borderRadius: InternalUiTheme.dialogRadius(
+                            context,
+                            darkRadius: 5,
+                          ),
                           child: _buildLogoImage(),
                         ),
                       ),
@@ -482,7 +488,10 @@ class _SettingsPageState extends State<SettingsPage> {
                         width: double.infinity,
                         height: 120,
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: InternalUiTheme.dialogRadius(
+                            context,
+                            darkRadius: 6,
+                          ),
                           border: Border.all(
                             color: Theme.of(context)
                                 .colorScheme
@@ -491,7 +500,10 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
                         ),
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(5),
+                          borderRadius: InternalUiTheme.dialogRadius(
+                            context,
+                            darkRadius: 5,
+                          ),
                           child: _buildBackgroundImage(),
                         ),
                       ),
@@ -616,7 +628,10 @@ class _SettingsPageState extends State<SettingsPage> {
                           .primary
                           .withValues(alpha: 0.1)
                       : Theme.of(context).colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: InternalUiTheme.dialogRadius(
+                    context,
+                    darkRadius: 6,
+                  ),
                 ),
                 child: Icon(
                   icon,

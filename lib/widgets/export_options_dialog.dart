@@ -27,15 +27,13 @@ class _ExportOptionsDialogState extends State<ExportOptionsDialog> {
 
     return Dialog(
       backgroundColor: colorScheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: InternalUiTheme.dialogShape(context),
       child: Container(
         width: 480,
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
           color: colorScheme.surface,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: InternalUiTheme.dialogRadius(context),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,

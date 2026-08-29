@@ -65,7 +65,13 @@ class _BrowserExtensionPageState extends State<BrowserExtensionPage> {
           height: 48,
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.primary,
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: InternalUiTheme.dialogRadius(
+              context,
+              darkRadius: 6,
+            ),
+            border: Theme.of(context).brightness == Brightness.light
+                ? Border.all(color: InternalUiTokens.border, width: 2)
+                : null,
           ),
           child: const Icon(
             Icons.extension,
@@ -130,10 +136,14 @@ class _BrowserExtensionPageState extends State<BrowserExtensionPage> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: featureColor.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: InternalUiTheme.dialogRadius(
+                  context,
+                  darkRadius: 4,
+                ),
                 border: Border.all(
                   color: featureColor.withValues(alpha: 0.3),
-                  width: 1,
+                  width:
+                      Theme.of(context).brightness == Brightness.light ? 2 : 1,
                 ),
               ),
               child: Row(
@@ -203,7 +213,16 @@ class _BrowserExtensionPageState extends State<BrowserExtensionPage> {
                   foregroundColor: Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: InternalUiTheme.dialogRadius(
+                      context,
+                      darkRadius: 6,
+                    ),
+                    side: Theme.of(context).brightness == Brightness.light
+                        ? const BorderSide(
+                            color: InternalUiTokens.border,
+                            width: 2,
+                          )
+                        : BorderSide.none,
                   ),
                 ),
                 child: _isDownloading
@@ -318,9 +337,16 @@ class _BrowserExtensionPageState extends State<BrowserExtensionPage> {
                   height: 28,
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.primary,
-                    borderRadius: BorderRadius.circular(
-                      Theme.of(context).brightness == Brightness.dark ? 14 : 4,
+                    borderRadius: InternalUiTheme.dialogRadius(
+                      context,
+                      darkRadius: 14,
                     ),
+                    border: Theme.of(context).brightness == Brightness.light
+                        ? Border.all(
+                            color: InternalUiTokens.border,
+                            width: 2,
+                          )
+                        : null,
                   ),
                   child: Center(
                     child: Text(
@@ -388,7 +414,14 @@ class _BrowserExtensionPageState extends State<BrowserExtensionPage> {
                                 .colorScheme
                                 .primary
                                 .withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: InternalUiTheme.dialogRadius(
+                              context,
+                              darkRadius: 8,
+                            ),
+                            border:
+                                Theme.of(context).brightness == Brightness.light
+                                    ? Border.all(color: InternalUiTokens.border)
+                                    : null,
                           ),
                           child: Icon(
                             step['icon'] as IconData,

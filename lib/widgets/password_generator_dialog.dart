@@ -155,8 +155,7 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
     return InternalUiTheme(
       child: Builder(
         builder: (context) => Dialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: InternalUiTheme.dialogShape(context),
           child: Container(
             constraints: const BoxConstraints(maxWidth: 860, maxHeight: 720),
             child: Column(
@@ -212,15 +211,22 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
       padding: const EdgeInsets.fromLTRB(24, 20, 16, 18),
       decoration: BoxDecoration(
         color: isLight
-            ? theme.colorScheme.surface
+            ? InternalUiTokens.secondary
             : theme.colorScheme.primary.withValues(alpha: 0.1),
         border: isLight
-            ? const Border(bottom: BorderSide(color: InternalUiTokens.border))
+            ? const Border(
+                bottom: BorderSide(
+                  color: InternalUiTokens.border,
+                  width: 2,
+                ),
+              )
             : null,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(12),
-          topRight: Radius.circular(12),
-        ),
+        borderRadius: isLight
+            ? BorderRadius.zero
+            : const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
       ),
       child: Row(
         children: [
@@ -228,11 +234,13 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: isLight
-                  ? InternalUiTokens.weakBackground
+                  ? InternalUiTokens.surface
                   : theme.colorScheme.primary,
-              borderRadius: BorderRadius.circular(6),
-              border:
-                  isLight ? Border.all(color: InternalUiTokens.border) : null,
+              borderRadius:
+                  isLight ? BorderRadius.zero : BorderRadius.circular(6),
+              border: isLight
+                  ? Border.all(color: InternalUiTokens.border, width: 2)
+                  : null,
             ),
             child: Icon(
               Icons.generating_tokens,
@@ -250,7 +258,7 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.onSurface,
+                    color: isLight ? Colors.white : theme.colorScheme.onSurface,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -258,7 +266,9 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
                   '生成安全的随机密码',
                   style: TextStyle(
                     fontSize: 14,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    color: isLight
+                        ? Colors.white.withValues(alpha: 0.78)
+                        : theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],
@@ -268,7 +278,8 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
             onPressed: () => Navigator.of(context).pop(),
             icon: Icon(
               Icons.close,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              color:
+                  isLight ? Colors.white : theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ],
@@ -392,7 +403,10 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
         color: isLight
             ? InternalUiTokens.weakBackground
             : theme.colorScheme.surfaceVariant.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: InternalUiTheme.dialogRadius(
+          context,
+          darkRadius: 8,
+        ),
         border: Border.all(
           color: isLight
               ? InternalUiTokens.border
@@ -435,7 +449,10 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surface,
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: InternalUiTheme.dialogRadius(
+                context,
+                darkRadius: 6,
+              ),
               border: Border.all(
                 color: Theme.of(context).colorScheme.outline.withOpacity(0.3),
               ),
@@ -645,7 +662,10 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: InternalUiTheme.dialogRadius(
+                      context,
+                      darkRadius: 6,
+                    ),
                   ),
                 ),
                 child: const Text('取消'),
@@ -658,7 +678,10 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: InternalUiTheme.dialogRadius(
+                      context,
+                      darkRadius: 6,
+                    ),
                   ),
                 ),
                 child: const Text('保存密码'),
@@ -698,7 +721,10 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
                   color: isSelected
                       ? Theme.of(context).colorScheme.primary
                       : Theme.of(context).colorScheme.surface,
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: InternalUiTheme.dialogRadius(
+                    context,
+                    darkRadius: 4,
+                  ),
                   border: Border.all(
                     color: isSelected
                         ? Theme.of(context).colorScheme.primary
