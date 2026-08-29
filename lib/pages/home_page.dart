@@ -16,6 +16,7 @@ import '../services/local_server_service.dart';
 import '../services/secure_storage_service.dart';
 import '../services/settings_service.dart';
 import '../services/theme_service.dart';
+import '../theme/internal_ui_theme.dart';
 import '../widgets/decrypt_password_dialog.dart';
 import '../widgets/export_options_dialog.dart';
 import '../widgets/footer.dart';
@@ -2045,38 +2046,44 @@ class _HomePageState extends State<HomePage> {
       itemCount: filteredPasswords.length,
       itemBuilder: (context, index) {
         final password = filteredPasswords[index];
+        final theme = Theme.of(context);
+        final isLight = theme.brightness == Brightness.light;
         return Card(
-          margin: const EdgeInsets.only(bottom: 8),
-          elevation: 1,
-          color: Theme.of(context).brightness == Brightness.light
-              ? Colors.grey[50]
-              : Theme.of(context).colorScheme.surface,
+          margin: const EdgeInsets.only(bottom: 10),
+          elevation: 0,
+          shadowColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          color: isLight ? InternalUiTokens.surface : theme.colorScheme.surface,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(isLight ? 8 : 12),
             side: BorderSide(
-              color: Theme.of(context).brightness == Brightness.light
-                  ? Colors.grey[300]!
-                  : Theme.of(context).colorScheme.outline.withOpacity(0.2),
-              width: 0.5,
+              color: isLight
+                  ? InternalUiTokens.border
+                  : theme.colorScheme.outline.withOpacity(0.2),
+              width: isLight ? 1 : 0.5,
             ),
           ),
           child: ListTile(
             contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
             leading: Container(
-              width: 40,
-              height: 40,
+              width: 42,
+              height: 42,
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary,
-                borderRadius: BorderRadius.circular(10),
+                color: isLight
+                    ? InternalUiTokens.weakBackground
+                    : theme.colorScheme.primary,
+                borderRadius: BorderRadius.circular(isLight ? 6 : 10),
+                border:
+                    isLight ? Border.all(color: InternalUiTokens.border) : null,
               ),
               child: Center(
                 child: Text(
                   password.title.isNotEmpty
                       ? password.title[0].toUpperCase()
                       : '?',
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: isLight ? InternalUiTokens.ink : Colors.white,
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
                   ),
@@ -2100,7 +2107,7 @@ class _HomePageState extends State<HomePage> {
                 Text(
                   password.username,
                   style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    color: theme.colorScheme.onSurfaceVariant,
                     fontSize: 13,
                   ),
                   maxLines: 1,
@@ -2114,7 +2121,9 @@ class _HomePageState extends State<HomePage> {
                         child: Text(
                           password.website!,
                           style: TextStyle(
-                            color: Theme.of(context).colorScheme.primary,
+                            color: isLight
+                                ? InternalUiTokens.muted
+                                : theme.colorScheme.primary,
                             fontSize: 11,
                           ),
                           maxLines: 1,
@@ -2127,16 +2136,18 @@ class _HomePageState extends State<HomePage> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 6, vertical: 1),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.secondaryContainer,
-                        borderRadius: BorderRadius.circular(6),
+                        color: isLight
+                            ? InternalUiTokens.weakBackground
+                            : theme.colorScheme.secondaryContainer,
+                        borderRadius: BorderRadius.circular(isLight ? 4 : 6),
                       ),
                       child: Text(
                         password.category ?? '其他',
                         style: TextStyle(
                           fontSize: 10,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSecondaryContainer,
+                          color: isLight
+                              ? InternalUiTokens.muted
+                              : theme.colorScheme.onSecondaryContainer,
                         ),
                       ),
                     ),
@@ -2162,7 +2173,9 @@ class _HomePageState extends State<HomePage> {
                   icon: Icon(
                     Icons.visibility,
                     size: 18,
-                    color: Theme.of(context).colorScheme.primary,
+                    color: isLight
+                        ? InternalUiTokens.muted
+                        : theme.colorScheme.primary,
                   ),
                   tooltip: '查看',
                   constraints:
@@ -2175,7 +2188,9 @@ class _HomePageState extends State<HomePage> {
                   icon: Icon(
                     Icons.edit,
                     size: 18,
-                    color: Theme.of(context).colorScheme.secondary,
+                    color: isLight
+                        ? InternalUiTokens.muted
+                        : theme.colorScheme.secondary,
                   ),
                   tooltip: '编辑',
                   constraints:
@@ -2188,7 +2203,9 @@ class _HomePageState extends State<HomePage> {
                   icon: Icon(
                     Icons.share,
                     size: 18,
-                    color: Theme.of(context).colorScheme.tertiary,
+                    color: isLight
+                        ? InternalUiTokens.muted
+                        : theme.colorScheme.tertiary,
                   ),
                   tooltip: '分享',
                   constraints:

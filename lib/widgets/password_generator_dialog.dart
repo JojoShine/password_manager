@@ -158,7 +158,7 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: Container(
-            constraints: const BoxConstraints(maxWidth: 800, maxHeight: 720),
+            constraints: const BoxConstraints(maxWidth: 860, maxHeight: 720),
             child: Column(
               children: [
                 // 标题栏
@@ -166,7 +166,7 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
                 // 内容区域 - 使用两列布局
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -183,7 +183,10 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
                             ],
                           ),
                         ),
-                        const SizedBox(width: 20),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 24),
+                          child: VerticalDivider(width: 1, thickness: 1),
+                        ),
                         // 右侧：保存选项
                         Expanded(
                           flex: 2,
@@ -203,12 +206,17 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
 
   /// 构建标题栏
   Widget _buildHeader() {
+    final theme = Theme.of(context);
+    final isLight = theme.brightness == Brightness.light;
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(24, 20, 16, 18),
       decoration: BoxDecoration(
-        color: Theme.of(context).brightness == Brightness.dark
-            ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
-            : Theme.of(context).colorScheme.primaryContainer,
+        color: isLight
+            ? theme.colorScheme.surface
+            : theme.colorScheme.primary.withValues(alpha: 0.1),
+        border: isLight
+            ? const Border(bottom: BorderSide(color: InternalUiTokens.border))
+            : null,
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(12),
           topRight: Radius.circular(12),
@@ -219,13 +227,17 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary,
+              color: isLight
+                  ? InternalUiTokens.weakBackground
+                  : theme.colorScheme.primary,
               borderRadius: BorderRadius.circular(6),
+              border:
+                  isLight ? Border.all(color: InternalUiTokens.border) : null,
             ),
-            child: const Icon(
+            child: Icon(
               Icons.generating_tokens,
-              color: Colors.white,
-              size: 24,
+              color: isLight ? InternalUiTokens.ink : Colors.white,
+              size: 20,
             ),
           ),
           const SizedBox(width: 16),
@@ -266,87 +278,75 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
 
   /// 构建生成器配置
   Widget _buildGeneratorConfig() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '密码配置',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '密码配置',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 12),
+        const SizedBox(height: 12),
 
-          // 长度选择
-          Text(
-            '密码长度: ${_length.toInt()}',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
+        // 长度选择
+        Text(
+          '密码长度: ${_length.toInt()}',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: Theme.of(context).colorScheme.onSurface,
           ),
-          Slider(
-            value: _length,
-            min: 6,
-            max: 50,
-            divisions: 44,
-            onChanged: (value) {
-              setState(() {
-                _length = value;
-              });
-              _generatePassword();
-            },
-          ),
-          const SizedBox(height: 8),
+        ),
+        Slider(
+          value: _length,
+          min: 6,
+          max: 50,
+          divisions: 44,
+          onChanged: (value) {
+            setState(() {
+              _length = value;
+            });
+            _generatePassword();
+          },
+        ),
+        const SizedBox(height: 8),
 
-          // 字符类型选择
-          Text(
-            '包含字符类型',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
+        // 字符类型选择
+        Text(
+          '包含字符类型',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: Theme.of(context).colorScheme.onSurface,
           ),
-          const SizedBox(height: 8),
+        ),
+        const SizedBox(height: 8),
 
-          // 字符类型选项
-          _buildCharacterTypeOption('大写字母 (A-Z)', _includeUppercase, (value) {
-            setState(() => _includeUppercase = value);
-            _generatePassword();
-          }),
-          _buildCharacterTypeOption('小写字母 (a-z)', _includeLowercase, (value) {
-            setState(() => _includeLowercase = value);
-            _generatePassword();
-          }),
-          _buildCharacterTypeOption('数字 (0-9)', _includeNumbers, (value) {
-            setState(() => _includeNumbers = value);
-            _generatePassword();
-          }),
-          _buildCharacterTypeOption('特殊符号 (!@#\$%^&*)', _includeSymbols,
-              (value) {
-            setState(() => _includeSymbols = value);
-            _generatePassword();
-          }),
-          _buildCharacterTypeOption('排除相似字符 (il1Lo0O)', _excludeSimilar,
-              (value) {
-            setState(() => _excludeSimilar = value);
-            _generatePassword();
-          }),
-        ],
-      ),
+        // 字符类型选项
+        _buildCharacterTypeOption('大写字母 (A-Z)', _includeUppercase, (value) {
+          setState(() => _includeUppercase = value);
+          _generatePassword();
+        }),
+        _buildCharacterTypeOption('小写字母 (a-z)', _includeLowercase, (value) {
+          setState(() => _includeLowercase = value);
+          _generatePassword();
+        }),
+        _buildCharacterTypeOption('数字 (0-9)', _includeNumbers, (value) {
+          setState(() => _includeNumbers = value);
+          _generatePassword();
+        }),
+        _buildCharacterTypeOption('特殊符号 (!@#\$%^&*)', _includeSymbols, (value) {
+          setState(() => _includeSymbols = value);
+          _generatePassword();
+        }),
+        _buildCharacterTypeOption('排除相似字符 (il1Lo0O)', _excludeSimilar, (value) {
+          setState(() => _excludeSimilar = value);
+          _generatePassword();
+        }),
+      ],
     );
   }
 
@@ -384,13 +384,19 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
 
   /// 构建密码显示
   Widget _buildPasswordDisplay() {
+    final theme = Theme.of(context);
+    final isLight = theme.brightness == Brightness.light;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
+        color: isLight
+            ? InternalUiTokens.weakBackground
+            : theme.colorScheme.surfaceVariant.withOpacity(0.5),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+          color: isLight
+              ? InternalUiTokens.border
+              : theme.colorScheme.primary.withOpacity(0.3),
         ),
       ),
       child: Column(
@@ -528,149 +534,139 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
 
   /// 构建保存选项
   Widget _buildSaveOptions() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.save,
-                color: Theme.of(context).colorScheme.primary,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '直接保存为密码条目',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // 表单字段
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  // 标题字段
-                  TextFormField(
-                    controller: _titleController,
-                    decoration: InputDecoration(
-                      labelText: '标题 *',
-                      hintText: '例如：Gmail、支付宝等',
-                      prefixIcon: Icon(
-                        Icons.title,
-                        color: Theme.of(context).colorScheme.primary,
-                        size: 20,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // 用户名字段
-                  TextFormField(
-                    controller: _usernameController,
-                    decoration: InputDecoration(
-                      labelText: '用户名/邮箱 *',
-                      hintText: '输入用户名或邮箱地址',
-                      prefixIcon: Icon(
-                        Icons.person,
-                        color: Theme.of(context).colorScheme.primary,
-                        size: 20,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // 网站字段
-                  TextFormField(
-                    controller: _websiteController,
-                    decoration: InputDecoration(
-                      labelText: '网站/应用',
-                      hintText: '例如：https://www.google.com',
-                      prefixIcon: Icon(
-                        Icons.language,
-                        color: Theme.of(context).colorScheme.primary,
-                        size: 20,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
-                    ),
-                    keyboardType: TextInputType.url,
-                  ),
-                  const SizedBox(height: 12),
-
-                  // 分类选择
-                  _buildCategorySelector(),
-                  const SizedBox(height: 12),
-
-                  // 备注字段
-                  TextFormField(
-                    controller: _notesController,
-                    maxLines: 2,
-                    decoration: InputDecoration(
-                      labelText: '备注',
-                      hintText: '添加额外的备注信息...',
-                      alignLabelWithHint: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
-                    ),
-                  ),
-                ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              Icons.save,
+              color: Theme.of(context).colorScheme.primary,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '直接保存为密码条目',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
-          ),
-          const SizedBox(height: 16),
+          ],
+        ),
+        const SizedBox(height: 12),
 
-          // 操作按钮
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+        // 表单字段
+        Expanded(
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                // 标题字段
+                TextFormField(
+                  controller: _titleController,
+                  decoration: InputDecoration(
+                    labelText: '标题 *',
+                    hintText: '例如：Gmail、支付宝等',
+                    prefixIcon: Icon(
+                      Icons.title,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      size: 20,
                     ),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
                   ),
-                  child: const Text('取消'),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: _saveAsEntry,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                const SizedBox(height: 12),
+
+                // 用户名字段
+                TextFormField(
+                  controller: _usernameController,
+                  decoration: InputDecoration(
+                    labelText: '用户名/邮箱 *',
+                    hintText: '输入用户名或邮箱地址',
+                    prefixIcon: Icon(
+                      Icons.person,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      size: 20,
                     ),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
                   ),
-                  child: const Text('保存密码'),
                 ),
-              ),
-            ],
+                const SizedBox(height: 12),
+
+                // 网站字段
+                TextFormField(
+                  controller: _websiteController,
+                  decoration: InputDecoration(
+                    labelText: '网站/应用',
+                    hintText: '例如：https://www.google.com',
+                    prefixIcon: Icon(
+                      Icons.language,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      size: 20,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                  ),
+                  keyboardType: TextInputType.url,
+                ),
+                const SizedBox(height: 12),
+
+                // 分类选择
+                _buildCategorySelector(),
+                const SizedBox(height: 12),
+
+                // 备注字段
+                TextFormField(
+                  controller: _notesController,
+                  maxLines: 2,
+                  decoration: InputDecoration(
+                    labelText: '备注',
+                    hintText: '添加额外的备注信息...',
+                    alignLabelWithHint: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 16),
+
+        // 操作按钮
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+                child: const Text('取消'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: _saveAsEntry,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+                child: const Text('保存密码'),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 

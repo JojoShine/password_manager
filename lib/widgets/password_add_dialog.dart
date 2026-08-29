@@ -179,7 +179,7 @@ class _PasswordAddDialogState extends State<PasswordAddDialog>
                   children: [
                     // 标题栏
                     _buildHeader(),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 4),
                     // 表单内容
                     Flexible(
                       child: SingleChildScrollView(
@@ -189,6 +189,8 @@ class _PasswordAddDialogState extends State<PasswordAddDialog>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
+                              _buildSectionLabel('基础信息'),
+                              const SizedBox(height: 12),
                               _buildTitleField(),
                               const SizedBox(height: 16),
                               _buildUsernameField(),
@@ -196,7 +198,9 @@ class _PasswordAddDialogState extends State<PasswordAddDialog>
                               _buildPasswordField(),
                               const SizedBox(height: 16),
                               _buildWebsiteField(),
-                              const SizedBox(height: 16),
+                              const SizedBox(height: 24),
+                              _buildSectionLabel('归类与备注'),
+                              const SizedBox(height: 12),
                               _buildCategorySelector(),
                               const SizedBox(height: 16),
                               _buildNotesField(),
@@ -221,12 +225,17 @@ class _PasswordAddDialogState extends State<PasswordAddDialog>
 
   /// 构建标题栏
   Widget _buildHeader() {
+    final theme = Theme.of(context);
+    final isLight = theme.brightness == Brightness.light;
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.fromLTRB(24, 20, 16, 18),
       decoration: BoxDecoration(
-        color: Theme.of(context).brightness == Brightness.dark
-            ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
-            : Theme.of(context).colorScheme.primaryContainer,
+        color: isLight
+            ? theme.colorScheme.surface
+            : theme.colorScheme.primary.withValues(alpha: 0.1),
+        border: isLight
+            ? const Border(bottom: BorderSide(color: InternalUiTokens.border))
+            : null,
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(12),
           topRight: Radius.circular(12),
@@ -237,13 +246,17 @@ class _PasswordAddDialogState extends State<PasswordAddDialog>
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary,
+              color: isLight
+                  ? InternalUiTokens.weakBackground
+                  : theme.colorScheme.primary,
               borderRadius: BorderRadius.circular(6),
+              border:
+                  isLight ? Border.all(color: InternalUiTokens.border) : null,
             ),
             child: Icon(
               widget.existingEntry != null ? Icons.edit : Icons.add,
-              color: Colors.white,
-              size: 24,
+              color: isLight ? InternalUiTokens.ink : Colors.white,
+              size: 20,
             ),
           ),
           const SizedBox(width: 16),
@@ -256,7 +269,7 @@ class _PasswordAddDialogState extends State<PasswordAddDialog>
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.onSurface,
+                    color: theme.colorScheme.onSurface,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -264,7 +277,7 @@ class _PasswordAddDialogState extends State<PasswordAddDialog>
                   widget.existingEntry != null ? '修改密码信息' : '创建新的密码条目',
                   style: TextStyle(
                     fontSize: 14,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],
@@ -282,6 +295,18 @@ class _PasswordAddDialogState extends State<PasswordAddDialog>
     );
   }
 
+  Widget _buildSectionLabel(String text) {
+    return Text(
+      text,
+      style: TextStyle(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0.8,
+      ),
+    );
+  }
+
   /// 构建标题字段
   Widget _buildTitleField() {
     return TextFormField(
@@ -291,7 +316,7 @@ class _PasswordAddDialogState extends State<PasswordAddDialog>
         hintText: '例如：Gmail、支付宝等',
         prefixIcon: Icon(
           Icons.title,
-          color: Theme.of(context).colorScheme.primary,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
       ),
       validator: (value) {
@@ -312,7 +337,7 @@ class _PasswordAddDialogState extends State<PasswordAddDialog>
         hintText: '输入用户名或邮箱地址',
         prefixIcon: Icon(
           Icons.person,
-          color: Theme.of(context).colorScheme.primary,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
         suffixIcon: _usernameController.text.isNotEmpty
             ? IconButton(
@@ -342,7 +367,7 @@ class _PasswordAddDialogState extends State<PasswordAddDialog>
         hintText: '输入或生成密码',
         prefixIcon: Icon(
           Icons.lock,
-          color: Theme.of(context).colorScheme.primary,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
         suffixIcon: Row(
           mainAxisSize: MainAxisSize.min,
@@ -391,7 +416,7 @@ class _PasswordAddDialogState extends State<PasswordAddDialog>
         hintText: '例如：https://www.google.com',
         prefixIcon: Icon(
           Icons.language,
-          color: Theme.of(context).colorScheme.primary,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
       ),
       keyboardType: TextInputType.url,
