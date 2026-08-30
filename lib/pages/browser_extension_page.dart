@@ -526,6 +526,7 @@ class _BrowserExtensionPageState extends State<BrowserExtensionPage> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
+                persist: false,
                 content: Row(
                   children: [
                     const Icon(Icons.check_circle,

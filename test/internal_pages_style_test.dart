@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:password_manager/pages/browser_extension_page.dart';
@@ -31,6 +34,38 @@ void main() {
     await tester.pumpWidget(app(const BrowserExtensionPage()));
 
     expect(find.byType(InternalSurface), findsNWidgets(3));
+  });
+
+  testWidgets('extension download confirmation dismisses automatically',
+      (tester) async {
+    final temporaryDirectory = Directory.systemTemp.createTempSync();
+    FilePicker.platform = _FakeFilePicker(
+      '${temporaryDirectory.path}/password_manager_browser.zip',
+    );
+    addTearDown(() {
+      FilePicker.platform = _FakeFilePicker(null);
+      temporaryDirectory.deleteSync(recursive: true);
+    });
+
+    await tester.pumpWidget(app(const BrowserExtensionPage()));
+    await tester.tap(find.text('立即下载'));
+    await tester.pump();
+    for (var i = 0; i < 5; i += 1) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.textContaining('扩展已下载到:'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.textContaining('扩展已下载到:'), findsNothing);
   });
 
   testWidgets('internal dialogs use square pixel frames', (tester) async {
@@ -162,4 +197,23 @@ void main() {
       );
     }
   });
+}
+
+class _FakeFilePicker extends FilePicker {
+  _FakeFilePicker(this.outputPath);
+
+  final String? outputPath;
+
+  @override
+  Future<String?> saveFile({
+    String? dialogTitle,
+    String? fileName,
+    String? initialDirectory,
+    FileType type = FileType.any,
+    List<String>? allowedExtensions,
+    List<int>? bytes,
+    bool lockParentWindow = false,
+  }) async {
+    return outputPath;
+  }
 }
