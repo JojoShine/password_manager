@@ -121,7 +121,7 @@ void main() {
 
   test('package version is consistently 3.0.0', () {
     final pubspec = File('pubspec.yaml').readAsStringSync();
-    expect(pubspec, contains('version: 3.0.0+1'));
+    expect(pubspec, contains('version: 3.0.0+'));
   });
 
   testWidgets('theme toggle uses a square solid pixel frame', (tester) async {
