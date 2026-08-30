@@ -3,9 +3,11 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/password_entry.dart';
+import 'auth_service.dart';
 import 'secure_storage_service.dart';
 
 /// 本地HTTP服务器服务
@@ -21,10 +23,11 @@ class LocalServerService {
   String? _serverToken;
   int? _serverPort;
   bool _isRunning = false;
-  
+
   // 新增：服务器健康检查
   Timer? _healthCheckTimer;
   int _consecutiveFailures = 0;
+  Future<bool> Function()? _healthProbeForTesting;
   static const int MAX_CONSECUTIVE_FAILURES = 3;
   static const Duration HEALTH_CHECK_INTERVAL = Duration(seconds: 30);
 
@@ -106,7 +109,7 @@ class LocalServerService {
       return false;
     }
   }
-  
+
   /// 启动健康检查定时器
   void _startHealthCheck() {
     _healthCheckTimer?.cancel();
@@ -115,7 +118,7 @@ class LocalServerService {
     });
     // debugPrint('服务器健康检查已启动，间隔: ${HEALTH_CHECK_INTERVAL.inSeconds}秒');
   }
-  
+
   /// 执行健康检查
   Future<void> _performHealthCheck() async {
     if (!_isRunning || _server == null) {
@@ -123,43 +126,76 @@ class LocalServerService {
       await _restartServer();
       return;
     }
-    
+
     try {
-      // 通过尝试创建一个简单的连接来检查服务器状态
-      // 由于HttpServer没有直接的状态检查方法，我们通过_isRunning标志来判断
-      // 如果服务器出现错误，_handleRequest会捕获并增加失败计数
-      
-      // 这里只是确认_isRunning标志仍然为true
-      if (_isRunning) {
-        _consecutiveFailures = 0; // 重置失败计数
-        // debugPrint('服务器健康检查通过');
+      final isHealthy = await (_healthProbeForTesting ?? _probeServer)();
+      if (isHealthy) {
+        _consecutiveFailures = 0;
       } else {
         _consecutiveFailures++;
-        // debugPrint('服务器健康检查失败，连续失败次数: $_consecutiveFailures');
-        
         if (_consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
-          // debugPrint('连续失败次数过多，重启服务器');
           await _restartServer();
         }
       }
     } catch (e) {
       _consecutiveFailures++;
       // debugPrint('健康检查异常: $e');
-      
+
       if (_consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
         await _restartServer();
       }
     }
   }
-  
+
+  Future<bool> _probeServer() async {
+    final url = serverUrl;
+    final token = _serverToken;
+    if (url == null || token == null) return false;
+
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 3);
+    try {
+      final request = await client
+          .getUrl(Uri.parse('$url/api/ping'))
+          .timeout(const Duration(seconds: 3));
+      request.headers.set(
+        HttpHeaders.authorizationHeader,
+        'Bearer $token',
+      );
+      final response = await request.close().timeout(
+            const Duration(seconds: 3),
+          );
+      final body = await utf8.decoder.bind(response).join();
+      if (response.statusCode != HttpStatus.ok) return false;
+
+      final json = jsonDecode(body) as Map<String, dynamic>;
+      final data = json['data'] as Map<String, dynamic>?;
+      return json['success'] == true && data?['message'] == 'pong';
+    } catch (_) {
+      return false;
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+  @visibleForTesting
+  Future<void> performHealthCheckForTesting() => _performHealthCheck();
+
+  @visibleForTesting
+  void setHealthProbeForTesting(Future<bool> Function()? probe) {
+    _healthProbeForTesting = probe;
+  }
+
+  @visibleForTesting
+  int get consecutiveHealthCheckFailuresForTesting => _consecutiveFailures;
+
   /// 重启服务器
   Future<void> _restartServer() async {
     // debugPrint('正在重启服务器...');
     await stopServer();
-    
+
     // 等待一小段时间再重启
     await Future.delayed(Duration(seconds: 1));
-    
+
     final success = await startServer();
     if (success) {
       // debugPrint('✅ 服务器重启成功');
@@ -167,12 +203,12 @@ class LocalServerService {
       // debugPrint('❌ 服务器重启失败');
     }
   }
-  
+
   /// 处理服务器错误
   void _handleServerError(dynamic error) {
     // debugPrint('服务器错误: $error');
     _consecutiveFailures++;
-    
+
     if (_consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
       // debugPrint('检测到严重错误，计划重启服务器');
       // 异步重启，避免阻塞
@@ -187,7 +223,7 @@ class LocalServerService {
     // 停止健康检查
     _healthCheckTimer?.cancel();
     _healthCheckTimer = null;
-    
+
     if (_server != null) {
       await _server!.close(force: true);
       _server = null;
@@ -230,6 +266,17 @@ class LocalServerService {
     }
 
     try {
+      if (_requiresUnlockedSession(request.uri.path) &&
+          !AuthService.instance.isSessionUnlocked) {
+        await _sendErrorResponse(
+          request.response,
+          HttpStatus.locked,
+          '应用已锁定，请先在密码管理器中解锁',
+          code: 'APP_LOCKED',
+        );
+        return;
+      }
+
       // 配置端点不需要token验证
       if (request.uri.path == '/config') {
         await _routeRequest(request);
@@ -249,6 +296,10 @@ class LocalServerService {
       // debugPrint('处理请求失败: $e');
       await _sendErrorResponse(request.response, 500, '服务器内部错误');
     }
+  }
+
+  bool _requiresUnlockedSession(String path) {
+    return path == '/config' || path.startsWith('/api/passwords');
   }
 
   /// 路由请求到相应的处理器
@@ -438,13 +489,18 @@ class LocalServerService {
 
   /// 发送错误响应
   Future<void> _sendErrorResponse(
-      HttpResponse response, int statusCode, String message) async {
+    HttpResponse response,
+    int statusCode,
+    String message, {
+    String? code,
+  }) async {
     response.statusCode = statusCode;
     response.headers.contentType = ContentType.json;
 
     final responseData = {
       'success': false,
       'error': message,
+      if (code != null) 'code': code,
       'timestamp': DateTime.now().toIso8601String(),
     };
 

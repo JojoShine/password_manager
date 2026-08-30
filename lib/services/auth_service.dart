@@ -8,7 +8,7 @@ import '../models/app_settings.dart';
 import 'settings_service.dart';
 
 /// 认证服务类
-class AuthService {
+class AuthService extends ChangeNotifier {
   static final AuthService _instance = AuthService._internal();
   factory AuthService() => _instance;
   AuthService._internal();
@@ -17,7 +17,11 @@ class AuthService {
 
   AppSettings? _currentSettings;
   String? _currentMasterPassword; // 临时存储当前会话的主密码
-  
+  bool _isSessionUnlocked = false;
+  DateTime? _backgroundedAt;
+
+  bool get isSessionUnlocked => _isSessionUnlocked;
+
   // 新增：密码尝试失败追踪
   int _failedAttempts = 0;
   DateTime? _lockoutTime;
@@ -26,36 +30,43 @@ class AuthService {
 
   /// 初始化认证服务
   Future<void> initialize() async {
+    _isSessionUnlocked = false;
+    _currentMasterPassword = null;
+    _backgroundedAt = null;
+    _failedAttempts = 0;
+    _lockoutTime = null;
     _currentSettings = await _loadSettings();
     await _loadFailedAttempts(); // 加载失败尝试记录
   }
-  
+
   /// 加载失败尝试记录
   Future<void> _loadFailedAttempts() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       _failedAttempts = prefs.getInt('failed_attempts') ?? 0;
       if (kDebugMode) print('加载失败尝试记录: 当前失败次数 $_failedAttempts');
-      
+
       final lockoutTimestamp = prefs.getString('lockout_time');
       if (lockoutTimestamp != null) {
         _lockoutTime = DateTime.parse(lockoutTimestamp);
-        
+
         // 检查锁定是否已过期
         final now = DateTime.now();
-        if (now.difference(_lockoutTime!).inMinutes >= LOCKOUT_DURATION_MINUTES) {
+        if (now.difference(_lockoutTime!).inMinutes >=
+            LOCKOUT_DURATION_MINUTES) {
           // 锁定已过期，清除记录
           if (kDebugMode) print('锁定已过期，清除失败尝试记录');
           await _clearFailedAttempts();
         } else {
-          if (kDebugMode) print('账户仍处于锁定状态，剩余时间: ${getRemainingLockoutTime()} 分钟');
+          if (kDebugMode)
+            print('账户仍处于锁定状态，剩余时间: ${getRemainingLockoutTime()} 分钟');
         }
       }
     } catch (e) {
       if (kDebugMode) print('加载失败尝试记录失败: $e');
     }
   }
-  
+
   /// 保存失败尝试记录
   Future<void> _saveFailedAttempts() async {
     try {
@@ -68,7 +79,7 @@ class AuthService {
       if (kDebugMode) print('保存失败尝试记录失败: $e');
     }
   }
-  
+
   /// 清除失败尝试记录
   Future<void> _clearFailedAttempts() async {
     try {
@@ -81,25 +92,25 @@ class AuthService {
       if (kDebugMode) print('清除失败尝试记录失败: $e');
     }
   }
-  
+
   /// 检查是否被锁定
   bool isLockedOut() {
     if (_lockoutTime == null) return false;
-    
+
     final now = DateTime.now();
     final minutesSinceLockout = now.difference(_lockoutTime!).inMinutes;
-    
+
     return minutesSinceLockout < LOCKOUT_DURATION_MINUTES;
   }
-  
+
   /// 获取剩余锁定时间（分钟）
   int getRemainingLockoutTime() {
     if (_lockoutTime == null) return 0;
-    
+
     final now = DateTime.now();
     final minutesSinceLockout = now.difference(_lockoutTime!).inMinutes;
     final remaining = LOCKOUT_DURATION_MINUTES - minutesSinceLockout;
-    
+
     return remaining > 0 ? remaining : 0;
   }
 
@@ -168,8 +179,8 @@ class AuthService {
       throw ArgumentError('密码不一致');
     }
 
-    if (password.length < 8) {
-      throw ArgumentError('密码长度至少为8位');
+    if (password.isEmpty) {
+      throw ArgumentError('密码不能为空');
     }
 
     final settings = await getCurrentSettings();
@@ -182,6 +193,8 @@ class AuthService {
     );
 
     await _saveSettings(updatedSettings);
+    _currentMasterPassword = password;
+    _setSessionUnlocked(true);
     return true;
   }
 
@@ -192,7 +205,7 @@ class AuthService {
       final remainingTime = getRemainingLockoutTime();
       throw Exception('账户已被锁定，请${remainingTime}分钟后再试');
     }
-    
+
     final settings = await getCurrentSettings();
 
     if (!settings.hasMasterPassword) {
@@ -205,7 +218,7 @@ class AuthService {
     if (isValid) {
       // 密码正确，重置失败计数
       await _clearFailedAttempts();
-      
+
       // 更新最后解锁时间
       final now = DateTime.now();
       final updatedSettings = settings.copyWith(
@@ -218,13 +231,15 @@ class AuthService {
 
       // 临时保存主密码用于当前会话的加密操作
       _currentMasterPassword = password;
+      _setSessionUnlocked(true);
 
       if (kDebugMode) print('密码验证成功，已更新最后解锁时间: $now');
     } else {
       // 密码错误，增加失败计数
       _failedAttempts++;
-      if (kDebugMode) print('密码验证失败，失败次数: $_failedAttempts/$MAX_FAILED_ATTEMPTS');
-      
+      if (kDebugMode)
+        print('密码验证失败，失败次数: $_failedAttempts/$MAX_FAILED_ATTEMPTS');
+
       if (_failedAttempts >= MAX_FAILED_ATTEMPTS) {
         // 达到最大失败次数，锁定账户
         _lockoutTime = DateTime.now();
@@ -243,10 +258,10 @@ class AuthService {
   Future<bool> needsAuthentication() async {
     // 强制重新加载设置以获取最新数据
     _currentSettings = await _loadSettings();
-    
+
     // 重新加载失败尝试记录，确保状态是最新的
     await _loadFailedAttempts();
-    
+
     final settings = _currentSettings!;
 
     if (settings.masterPasswordHash == null || settings.isFirstLaunch) {
@@ -257,58 +272,13 @@ class AuthService {
     // 检查是否因密码错误被锁定（优先级最高）
     if (isLockedOut()) {
       if (kDebugMode) print('账户处于锁定状态，需要认证');
+      _setSessionUnlocked(false);
       return true;
     }
 
-    if (settings.lastUnlockTime == null) {
-      // print('需要认证：没有记录解锁时间');
-      return true;
-    }
-
-    // 获取锁定超时时间（从SettingsService获取）
-    final timeoutMinutes = SettingsService.instance.lockTimeoutMinutes;
-    
-    if (kDebugMode) {
-      print('🔍 [自动锁定检查] SettingsService配置的超时时间: ${timeoutMinutes} 分钟');
-      print('🔍 [自动锁定检查] SharedPreferences中的原始值: ${await _getRawLockTimeoutValue()}');
-    }
-    
-    final now = DateTime.now();
-    final timeSinceLastUnlock = now.difference(settings.lastUnlockTime!);
-
-    // 使用更精确的时间比较（毫秒级别），避免inMinutes的整数截断问题
-    final timeoutDuration = Duration(minutes: timeoutMinutes);
-    final needsAuth = timeSinceLastUnlock >= timeoutDuration;
-
-    // 调试日志
-    if (kDebugMode) {
-      print('🔍 [自动锁定检查] 详细时间信息:');
-      print('  - 上次解锁时间: ${settings.lastUnlockTime!.toLocal()}');
-      print('  - 当前时间: ${now.toLocal()}');
-      print('  - 已过去时间: ${timeSinceLastUnlock.inMinutes} 分 ${timeSinceLastUnlock.inSeconds % 60} 秒 (${timeSinceLastUnlock.inSeconds} 秒)');
-      print('  - 配置超时: ${timeoutMinutes} 分钟 (${timeoutDuration.inSeconds} 秒)');
-      print('  - 是否需要认证: $needsAuth');
-    }
-
-    // 如果超过锁定时间，自动锁定应用
-    if (needsAuth) {
-      await lockApp();
-    }
-
-    return needsAuth;
+    return !_isSessionUnlocked;
   }
-  
-  /// 获取SharedPreferences中的原始锁定超时值（用于调试）
-  Future<int?> _getRawLockTimeoutValue() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      return prefs.getInt('lock_timeout_minutes');
-    } catch (e) {
-      if (kDebugMode) print('获取原始锁定超时值失败: $e');
-      return null;
-    }
-  }
-  
+
   /// 检查是否在免密登录时间内
   Future<bool> isWithinAutoUnlockTime() async {
     final settings = await getCurrentSettings();
@@ -317,20 +287,31 @@ class AuthService {
       return false;
     }
 
-    if (settings.lastUnlockTime == null) {
-      return false;
+    return _isSessionUnlocked;
+  }
+
+  /// 记录应用首次离开前台的时间；重复的生命周期通知不会重置计时。
+  void markBackgrounded(DateTime at) {
+    _backgroundedAt ??= at;
+  }
+
+  /// 应用返回前台时，仅按实际后台停留时间决定是否锁定。
+  Future<bool> resumeFromBackground(DateTime at) async {
+    final backgroundedAt = _backgroundedAt;
+    _backgroundedAt = null;
+
+    if (!_isSessionUnlocked) return true;
+    if (backgroundedAt == null || at.isBefore(backgroundedAt)) return false;
+
+    final timeout = Duration(
+      minutes: SettingsService.instance.lockTimeoutMinutes,
+    );
+    if (at.difference(backgroundedAt) >= timeout) {
+      await lockApp();
+      return true;
     }
 
-    // 获取锁定超时时间（从SettingsService获取）
-    final timeoutMinutes = SettingsService.instance.lockTimeoutMinutes;
-    final timeSinceLastUnlock =
-        DateTime.now().difference(settings.lastUnlockTime!);
-
-    // 使用精确的Duration比较
-    final timeoutDuration = Duration(minutes: timeoutMinutes);
-    
-    // 如果未超过锁定时间，说明在免密登录时间内
-    return timeSinceLastUnlock < timeoutDuration;
+    return false;
   }
 
   /// 获取当前会话的主密码（用于加密操作）
@@ -350,42 +331,28 @@ class AuthService {
       throw ArgumentError('超时时间必须在1-1440分钟之间');
     }
 
-    final settings = await getCurrentSettings();
-    final updatedSettings = settings.copyWith(
-      autoLockTimeoutMinutes: minutes,
-    );
-
-    await _saveSettings(updatedSettings);
+    await SettingsService.instance.setLockTimeout(minutes);
   }
 
   /// 获取自动锁定超时时间
   Future<int> getAutoLockTimeout() async {
-    final settings = await getCurrentSettings();
-    return settings.autoLockTimeoutMinutes;
+    return SettingsService.instance.lockTimeoutMinutes;
   }
 
   /// 立即锁定应用
   Future<void> lockApp() async {
-    final settings = await getCurrentSettings();
-    final updatedSettings = settings.copyWith(
-      lastUnlockTime: DateTime.now().subtract(
-        Duration(minutes: settings.autoLockTimeoutMinutes + 1),
-      ),
-    );
-
-    await _saveSettings(updatedSettings);
-
-    // 清除临时保存的主密码
     _currentMasterPassword = null;
-    
+    _backgroundedAt = null;
+    _setSessionUnlocked(false);
+
     // 注意：这里不清除失败尝试记录，保持安全策略
   }
-  
+
   /// 手动重置失败尝试（管理员功能）
   Future<void> resetFailedAttempts() async {
     await _clearFailedAttempts();
   }
-  
+
   /// 获取失败尝试信息
   Map<String, dynamic> getFailedAttemptInfo() {
     return {
@@ -402,6 +369,8 @@ class AuthService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('app_settings');
       _currentSettings = null;
+      _currentMasterPassword = null;
+      _setSessionUnlocked(false);
     } catch (e) {
       // print('清除设置失败: $e');
     }
@@ -421,8 +390,8 @@ class AuthService {
       throw ArgumentError('新密码不一致');
     }
 
-    if (newPassword.length < 8) {
-      throw ArgumentError('新密码长度至少为8位');
+    if (newPassword.isEmpty) {
+      throw ArgumentError('新密码不能为空');
     }
 
     if (newPassword == oldPassword) {
@@ -439,6 +408,8 @@ class AuthService {
     );
 
     await _saveSettings(updatedSettings);
+    _currentMasterPassword = newPassword;
+    _setSessionUnlocked(true);
     return true;
   }
 
@@ -449,11 +420,11 @@ class AuthService {
     return {
       'isFirstLaunch': settings.isFirstLaunch,
       'hasMasterPassword': settings.hasMasterPassword,
-      'autoLockTimeoutMinutes': settings.autoLockTimeoutMinutes,
+      'autoLockTimeoutMinutes': SettingsService.instance.lockTimeoutMinutes,
       'lastUnlockTime': settings.lastUnlockTime?.toIso8601String(),
       'appVersion': settings.appVersion,
       'createdAt': settings.createdAt.toIso8601String(),
-      'needsAuthentication': settings.needsAuthentication,
+      'needsAuthentication': !_isSessionUnlocked,
     };
   }
 
@@ -462,7 +433,7 @@ class AuthService {
     final settings = await getCurrentSettings();
 
     return {
-      'autoLockTimeoutMinutes': settings.autoLockTimeoutMinutes,
+      'autoLockTimeoutMinutes': SettingsService.instance.lockTimeoutMinutes,
       'biometricEnabled': settings.biometricEnabled,
       'appVersion': settings.appVersion,
       'hasPassword': settings.hasMasterPassword,
@@ -489,7 +460,7 @@ class AuthService {
 
     // 长度检查
     if (password.length < 8) {
-      issues.add('密码长度至少为8位');
+      suggestions.add('建议使用8位以上密码');
     } else if (password.length >= 12) {
       score += 1;
     }
@@ -525,8 +496,14 @@ class AuthService {
     result['score'] = score;
     result['issues'] = issues;
     result['suggestions'] = suggestions;
-    result['isValid'] = issues.isEmpty && password.length >= 8;
+    result['isValid'] = issues.isEmpty;
 
     return result;
+  }
+
+  void _setSessionUnlocked(bool value) {
+    if (_isSessionUnlocked == value) return;
+    _isSessionUnlocked = value;
+    notifyListeners();
   }
 }

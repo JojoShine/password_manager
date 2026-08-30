@@ -22,10 +22,35 @@ void main() {
     expect(shape.side.width, 2);
   });
 
-  test('dark internal theme keeps the existing theme direction', () {
+  test('dark internal theme uses the same square pixel language', () {
     final base = ThemeData.dark();
+    final theme = InternalUiTheme.resolve(base);
 
-    expect(InternalUiTheme.resolve(base), same(base));
+    expect(theme, isNot(same(base)));
+    expect(theme.scaffoldBackgroundColor, const Color(0xFF151410));
+    expect(theme.cardTheme.elevation, 0);
+    final shape = theme.cardTheme.shape! as RoundedRectangleBorder;
+    expect(shape.borderRadius, BorderRadius.zero);
+    expect(shape.side.width, 2);
+    expect(shape.side.color, InternalUiTokens.darkBorder);
+  });
+
+  test('operation messages use a floating square pixel surface', () {
+    final theme = InternalUiTheme.resolve(ThemeData.light());
+    final snackBarTheme = theme.snackBarTheme;
+
+    expect(snackBarTheme.behavior, SnackBarBehavior.floating);
+    expect(snackBarTheme.elevation, 0);
+    expect(snackBarTheme.backgroundColor, InternalUiTokens.ink);
+    expect(
+      snackBarTheme.insetPadding,
+      const EdgeInsets.fromLTRB(20, 0, 20, 16),
+    );
+
+    final shape = snackBarTheme.shape! as RoundedRectangleBorder;
+    expect(shape.borderRadius, BorderRadius.zero);
+    expect(shape.side.width, 2);
+    expect(shape.side.color, InternalUiTokens.highlight);
   });
 
   testWidgets('internal surface has crisp pixel edges in light mode',

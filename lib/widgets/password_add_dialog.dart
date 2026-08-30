@@ -228,23 +228,16 @@ class _PasswordAddDialogState extends State<PasswordAddDialog>
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 20, 16, 18),
       decoration: BoxDecoration(
-        color: isLight
-            ? InternalUiTokens.secondary
-            : theme.colorScheme.primary.withValues(alpha: 0.1),
-        border: isLight
-            ? const Border(
-                bottom: BorderSide(
-                  color: InternalUiTokens.border,
-                  width: 2,
-                ),
-              )
-            : null,
-        borderRadius: isLight
-            ? BorderRadius.zero
-            : const BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
-              ),
+        color:
+            isLight ? InternalUiTokens.secondary : InternalUiTokens.darkRaised,
+        border: Border(
+          bottom: BorderSide(
+            color:
+                isLight ? InternalUiTokens.border : InternalUiTokens.darkBorder,
+            width: 2,
+          ),
+        ),
+        borderRadius: BorderRadius.zero,
       ),
       child: Row(
         children: [
@@ -254,11 +247,13 @@ class _PasswordAddDialogState extends State<PasswordAddDialog>
               color: isLight
                   ? InternalUiTokens.surface
                   : theme.colorScheme.primary,
-              borderRadius:
-                  isLight ? BorderRadius.zero : BorderRadius.circular(6),
-              border: isLight
-                  ? Border.all(color: InternalUiTokens.border, width: 2)
-                  : null,
+              borderRadius: BorderRadius.zero,
+              border: Border.all(
+                color: isLight
+                    ? InternalUiTokens.border
+                    : InternalUiTokens.darkBorder,
+                width: 2,
+              ),
             ),
             child: Icon(
               widget.existingEntry != null ? Icons.edit : Icons.add,
@@ -276,7 +271,7 @@ class _PasswordAddDialogState extends State<PasswordAddDialog>
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: isLight ? Colors.white : theme.colorScheme.onSurface,
+                    color: Colors.white,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -452,6 +447,7 @@ class _PasswordAddDialogState extends State<PasswordAddDialog>
           runSpacing: 8,
           children: _categories.map((category) {
             final isSelected = _selectedCategory == category;
+            final isDark = Theme.of(context).brightness == Brightness.dark;
             return GestureDetector(
               onTap: () => setState(() => _selectedCategory = category),
               child: Container(
@@ -466,20 +462,48 @@ class _PasswordAddDialogState extends State<PasswordAddDialog>
                     darkRadius: 4,
                   ),
                   border: Border.all(
-                    color: isSelected
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.outline,
+                    color: isDark
+                        ? isSelected
+                            ? Theme.of(context).colorScheme.primary
+                            : Theme.of(context).colorScheme.outline
+                        : InternalUiTokens.border,
+                    width: 2,
                   ),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: isDark
+                                ? InternalUiTokens.darkBorder
+                                : InternalUiTokens.border,
+                            blurRadius: 0,
+                            offset: const Offset(2, 2),
+                          ),
+                        ]
+                      : null,
                 ),
-                child: Text(
-                  category,
-                  style: TextStyle(
-                    color: isSelected
-                        ? Colors.white
-                        : Theme.of(context).colorScheme.onSurface,
-                    fontWeight:
-                        isSelected ? FontWeight.w600 : FontWeight.normal,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (isSelected) ...[
+                      Container(
+                        width: 7,
+                        height: 7,
+                        color:
+                            isDark ? Colors.white : InternalUiTokens.highlight,
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    Text(
+                      category,
+                      style: TextStyle(
+                        color: isSelected
+                            ? Colors.white
+                            : Theme.of(context).colorScheme.onSurface,
+                        fontWeight:
+                            isSelected ? FontWeight.w700 : FontWeight.normal,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             );

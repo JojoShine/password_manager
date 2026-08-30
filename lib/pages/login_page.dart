@@ -6,8 +6,8 @@ import 'package:flutter/services.dart';
 import '../services/auth_service.dart';
 import '../services/settings_service.dart';
 import '../services/theme_service.dart';
+import '../theme/internal_ui_theme.dart';
 import '../widgets/theme_toggle_button.dart';
-import 'home_page.dart';
 
 /// 登录页面
 class LoginPage extends StatefulWidget {
@@ -76,7 +76,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       setState(() {
         _isFirstLaunch = isFirst || !hasPassword;
       });
-      
+
       // 检查是否处于锁定状态
       if (!isFirst && hasPassword && _authService.isLockedOut()) {
         final remainingTime = _authService.getRemainingLockoutTime();
@@ -127,7 +127,6 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
         );
 
         HapticFeedback.mediumImpact();
-        _navigateToHome();
       } else {
         // 验证主密码
         final isValid =
@@ -135,12 +134,12 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
 
         if (isValid) {
           HapticFeedback.mediumImpact();
-          _navigateToHome();
         } else {
           // 获取失败尝试信息
           final attemptInfo = _authService.getFailedAttemptInfo();
-          final remainingAttempts = attemptInfo['maxAttempts'] - attemptInfo['failedAttempts'];
-          
+          final remainingAttempts =
+              attemptInfo['maxAttempts'] - attemptInfo['failedAttempts'];
+
           if (attemptInfo['isLockedOut']) {
             _showError('账户已被锁定，请${attemptInfo['remainingLockoutTime']}分钟后再试');
           } else {
@@ -159,21 +158,10 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     }
   }
 
-  /// 导航到主页
-  void _navigateToHome() {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (context) => const HomePage()),
-    );
-  }
-
   /// 验证密码
   String? _validatePassword(String? value) {
     if (value == null || value.isEmpty) {
       return '请输入密码';
-    }
-
-    if (_isFirstLaunch && value.length < 8) {
-      return '密码长度至少为8位';
     }
 
     return null;
@@ -306,160 +294,185 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
         SettingsService.instance,
       ]),
       builder: (context, child) {
-        return Scaffold(
-          body: Stack(
-            children: [
-              Container(
-                // 科技感背景图片 + 渐变遮罩
-                decoration: BoxDecoration(
-                  image: DecorationImage(
-                    image: SettingsService.instance.hasCustomBackground
-                        ? FileImage(File(
-                            SettingsService.instance.getBackgroundImagePath()))
-                        : const AssetImage('assets/bg.png') as ImageProvider,
-                    fit: BoxFit.cover,
-                    opacity: 0.4,
-                  ),
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: ThemeService.instance.isDark
-                        ? [
-                            Colors.black.withOpacity(0.7),
-                            Colors.grey[900]!.withOpacity(0.8),
-                            const Color(0xFF0D1117).withOpacity(0.9),
-                            Colors.black.withOpacity(0.6),
-                          ]
-                        : [
-                            Colors.white,
-                            const Color(0xFFF9FAFB),
-                            Colors.grey[50]!,
-                            Colors.white,
-                          ],
-                    stops: const [0.0, 0.3, 0.7, 1.0],
-                  ),
-                ),
-                child: Container(
-                  // 额外的遮罩层，确保文字可读性
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: ThemeService.instance.isDark
-                          ? [
-                              Colors.black.withOpacity(0.3),
-                              Colors.transparent,
-                              Colors.black.withOpacity(0.4),
-                            ]
-                          : [
-                              Colors.transparent,
-                              Colors.transparent,
-                              Colors.transparent,
-                            ],
-                      stops: const [0.0, 0.5, 1.0],
-                    ),
-                  ),
-                  child: SafeArea(
-                    child: FadeTransition(
-                      opacity: _fadeAnimation,
-                      child: Center(
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.all(24.0),
-                          child: Form(
-                            key: _formKey,
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                // 应用图标和标题
-                                _buildHeader(),
-
-                                const SizedBox(height: 40),
-
-                                // 说明文字 - 限制宽度
-                                ConstrainedBox(
-                                  constraints:
-                                      const BoxConstraints(maxWidth: 400),
-                                  child: _buildDescription(),
-                                ),
-
-                                const SizedBox(height: 32),
-
-                                // 输入字段区域 - 限制宽度
-                                ConstrainedBox(
-                                  constraints:
-                                      const BoxConstraints(maxWidth: 400),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      // 密码输入框
-                                      _buildPasswordField(),
-
-                                      // 确认密码输入框（仅首次设置时显示）
-                                      if (_isFirstLaunch) ...[
-                                        const SizedBox(height: 16),
-                                        _buildConfirmPasswordField(),
-                                      ],
-
-                                      // 密码强度指示器
-                                      _buildPasswordStrengthIndicator(),
-
-                                      const SizedBox(height: 24),
-
-                                      // 错误信息
-                                      if (_errorMessage.isNotEmpty) ...[
-                                        Container(
-                                          padding: const EdgeInsets.all(12),
-                                          decoration: BoxDecoration(
-                                            color: Theme.of(context)
-                                                .colorScheme
-                                                .error
-                                                .withOpacity(0.9),
-                                            borderRadius:
-                                                BorderRadius.circular(8),
-                                            border: Border.all(
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .error,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            _errorMessage,
-                                            style: TextStyle(
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .onError,
-                                              fontSize: 14,
-                                            ),
-                                            textAlign: TextAlign.center,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 16),
-                                      ],
-
-                                      // 登录按钮
-                                      _buildLoginButton(),
+        return InternalUiTheme(
+          child: Builder(
+              builder: (context) => Scaffold(
+                    body: Stack(
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            image: DecorationImage(
+                              image:
+                                  SettingsService.instance.hasCustomBackground
+                                      ? FileImage(File(SettingsService.instance
+                                          .getBackgroundImagePath()))
+                                      : const AssetImage('assets/bg.png')
+                                          as ImageProvider,
+                              fit: BoxFit.cover,
+                              opacity:
+                                  ThemeService.instance.isDark ? 0.34 : 0.24,
+                            ),
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: ThemeService.instance.isDark
+                                  ? [
+                                      InternalUiTokens.darkBackground,
+                                      const Color(0xFF1B1915),
+                                      InternalUiTokens.darkSurface,
+                                      InternalUiTokens.darkBackground,
+                                    ]
+                                  : [
+                                      InternalUiTokens.background,
+                                      const Color(0xFFF1E8D5),
+                                      InternalUiTokens.weakBackground,
+                                      InternalUiTokens.background,
                                     ],
+                              stops: const [0.0, 0.3, 0.7, 1.0],
+                            ),
+                          ),
+                          child: Container(
+                            // 额外的遮罩层，确保文字可读性
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: ThemeService.instance.isDark
+                                    ? [
+                                        Colors.black.withOpacity(0.3),
+                                        Colors.transparent,
+                                        Colors.black.withOpacity(0.4),
+                                      ]
+                                    : [
+                                        Colors.transparent,
+                                        Colors.transparent,
+                                        Colors.transparent,
+                                      ],
+                                stops: const [0.0, 0.5, 1.0],
+                              ),
+                            ),
+                            child: SafeArea(
+                              child: FadeTransition(
+                                opacity: _fadeAnimation,
+                                child: Center(
+                                  child: SingleChildScrollView(
+                                    padding: const EdgeInsets.all(24.0),
+                                    child: Form(
+                                      key: _formKey,
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.center,
+                                        children: [
+                                          // 应用图标和标题
+                                          _buildHeader(),
+
+                                          const SizedBox(height: 40),
+
+                                          // 说明文字 - 限制宽度
+                                          ConstrainedBox(
+                                            constraints: const BoxConstraints(
+                                                maxWidth: 400),
+                                            child: _buildDescription(),
+                                          ),
+
+                                          const SizedBox(height: 32),
+
+                                          // 输入字段区域 - 限制宽度
+                                          ConstrainedBox(
+                                            constraints: const BoxConstraints(
+                                                maxWidth: 400),
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.stretch,
+                                              children: [
+                                                // 密码输入框
+                                                _buildPasswordField(),
+
+                                                // 确认密码输入框（仅首次设置时显示）
+                                                if (_isFirstLaunch) ...[
+                                                  const SizedBox(height: 16),
+                                                  _buildConfirmPasswordField(),
+                                                ],
+
+                                                // 密码强度指示器
+                                                _buildPasswordStrengthIndicator(),
+
+                                                const SizedBox(height: 24),
+
+                                                // 错误信息
+                                                if (_errorMessage
+                                                    .isNotEmpty) ...[
+                                                  Container(
+                                                    padding:
+                                                        const EdgeInsets.all(
+                                                            12),
+                                                    decoration: BoxDecoration(
+                                                      color: Theme.of(context)
+                                                          .colorScheme
+                                                          .error
+                                                          .withOpacity(0.9),
+                                                      borderRadius:
+                                                          BorderRadius.zero,
+                                                      border: Border.all(
+                                                        color: Theme.of(context)
+                                                            .colorScheme
+                                                            .error,
+                                                      ),
+                                                    ),
+                                                    child: Text(
+                                                      _errorMessage,
+                                                      style: TextStyle(
+                                                        color: Theme.of(context)
+                                                            .colorScheme
+                                                            .onError,
+                                                        fontSize: 14,
+                                                      ),
+                                                      textAlign:
+                                                          TextAlign.center,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 16),
+                                                ],
+
+                                                // 登录按钮
+                                                _buildLoginButton(),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: Opacity(
+                              opacity:
+                                  ThemeService.instance.isDark ? 0.08 : 0.12,
+                              child: GridPaper(
+                                color: Theme.of(context).colorScheme.outline,
+                                interval: 32,
+                                divisions: 2,
+                                subdivisions: 1,
+                              ),
+                            ),
+                          ),
+                        ),
+                        // 主题切换按钮
+                        const Positioned(
+                          top: 50,
+                          right: 20,
+                          child: ThemeToggleButton(),
+                        ),
+                      ],
                     ),
-                  ),
-                ),
-              ),
-              // 主题切换按钮
-              const Positioned(
-                top: 50,
-                right: 20,
-                child: ThemeToggleButton(),
-              ),
-            ],
-          ),
+                  )),
         );
       },
     );
@@ -469,46 +482,29 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   Widget _buildHeader() {
     return Column(
       children: [
-        // 主图标容器，添加多层阴影效果
+        // 主图标容器
         Container(
           width: 100,
           height: 100,
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.primary,
-            borderRadius: BorderRadius.circular(25),
-            boxShadow: [
-              // 外层发光效果
-              BoxShadow(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.4),
-                blurRadius: 30,
-                spreadRadius: 5,
-                offset: const Offset(0, 0),
-              ),
-              // 主阴影
-              BoxShadow(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-              // 内部高光
-              const BoxShadow(
-                color: Colors.white24,
-                blurRadius: 5,
-                offset: Offset(0, -2),
-              ),
-            ],
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Theme.of(context).colorScheme.primary.withOpacity(0.9),
-                Theme.of(context).colorScheme.primary,
-                Theme.of(context).colorScheme.primary.withOpacity(0.8),
-              ],
+            borderRadius: BorderRadius.zero,
+            border: Border.all(
+              color: Theme.of(context).colorScheme.outline,
+              width: Theme.of(context).brightness == Brightness.dark ? 1 : 2,
             ),
+            boxShadow: Theme.of(context).brightness == Brightness.dark
+                ? null
+                : const [
+                    BoxShadow(
+                      color: InternalUiTokens.border,
+                      blurRadius: 0,
+                      offset: Offset(5, 5),
+                    ),
+                  ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.zero,
             child: _buildLogoImage(),
           ),
         ),
@@ -521,13 +517,6 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
             color: Theme.of(context).colorScheme.onSurface,
             fontSize: 28,
             letterSpacing: 1.2,
-            shadows: [
-              Shadow(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
-              ),
-            ],
           ),
         ),
         const SizedBox(height: 12),
@@ -545,16 +534,7 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
         Container(
           width: 60,
           height: 2,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Colors.transparent,
-                Theme.of(context).colorScheme.primary.withOpacity(0.6),
-                Colors.transparent,
-              ],
-            ),
-            borderRadius: BorderRadius.circular(1),
-          ),
+          color: Theme.of(context).colorScheme.secondary,
         ),
       ],
     );
@@ -565,19 +545,21 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface.withOpacity(0.9),
-        borderRadius: BorderRadius.circular(16),
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.zero,
         border: Border.all(
-          color: Theme.of(context).colorScheme.outline.withOpacity(0.4),
-          width: 1,
+          color: Theme.of(context).colorScheme.outline,
+          width: Theme.of(context).brightness == Brightness.dark ? 1 : 2,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 15,
-            offset: const Offset(0, 6),
-          ),
-        ],
+        boxShadow: Theme.of(context).brightness == Brightness.dark
+            ? null
+            : const [
+                BoxShadow(
+                  color: InternalUiTokens.border,
+                  blurRadius: 0,
+                  offset: Offset(4, 4),
+                ),
+              ],
       ),
       child: Column(
         children: [
@@ -585,10 +567,11 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
+              color: Theme.of(context).colorScheme.primaryContainer,
+              borderRadius: BorderRadius.zero,
               border: Border.all(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                color: Theme.of(context).colorScheme.outline,
+                width: Theme.of(context).brightness == Brightness.dark ? 1 : 2,
               ),
             ),
             child: Icon(
@@ -627,55 +610,43 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
 
   /// 构建密码输入框
   Widget _buildPasswordField() {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+    return TextFormField(
+      controller: _passwordController,
+      obscureText: _obscurePassword,
+      validator: _validatePassword,
+      onChanged: (_) => setState(() {}), // 触发密码强度更新
+      onFieldSubmitted: (_) {
+        if (_isFirstLaunch) {
+          // 如果是首次设置，且确认密码框存在，跳转到确认密码框
+          FocusScope.of(context).nextFocus();
+        } else {
+          // 否则直接触发登录
+          _handleLogin();
+        }
+      },
+      textInputAction:
+          _isFirstLaunch ? TextInputAction.next : TextInputAction.go,
+      style: TextStyle(
+        color: Theme.of(context).colorScheme.onSurface,
+        fontSize: 16,
       ),
-      child: TextFormField(
-        controller: _passwordController,
-        obscureText: _obscurePassword,
-        validator: _validatePassword,
-        onChanged: (_) => setState(() {}), // 触发密码强度更新
-        onFieldSubmitted: (_) {
-          if (_isFirstLaunch) {
-            // 如果是首次设置，且确认密码框存在，跳转到确认密码框
-            FocusScope.of(context).nextFocus();
-          } else {
-            // 否则直接触发登录
-            _handleLogin();
-          }
-        },
-        textInputAction:
-            _isFirstLaunch ? TextInputAction.next : TextInputAction.go,
-        style: TextStyle(
-          color: Theme.of(context).colorScheme.onSurface,
-          fontSize: 16,
+      decoration: InputDecoration(
+        labelText: _isFirstLaunch ? '设置主密码' : '主密码',
+        hintText: _isFirstLaunch ? '请输入至少6位密码' : '请输入主密码',
+        prefixIcon: Icon(
+          Icons.lock,
+          color: Theme.of(context).colorScheme.primary,
         ),
-        decoration: InputDecoration(
-          labelText: _isFirstLaunch ? '设置主密码' : '主密码',
-          hintText: _isFirstLaunch ? '请输入至少6位密码' : '请输入主密码',
-          prefixIcon: Icon(
-            Icons.lock,
-            color: Theme.of(context).colorScheme.primary,
+        suffixIcon: IconButton(
+          icon: Icon(
+            _obscurePassword ? Icons.visibility : Icons.visibility_off,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
-          suffixIcon: IconButton(
-            icon: Icon(
-              _obscurePassword ? Icons.visibility : Icons.visibility_off,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-            onPressed: () {
-              setState(() {
-                _obscurePassword = !_obscurePassword;
-              });
-            },
-          ),
+          onPressed: () {
+            setState(() {
+              _obscurePassword = !_obscurePassword;
+            });
+          },
         ),
       ),
     );
@@ -683,45 +654,33 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
 
   /// 构建确认密码输入框
   Widget _buildConfirmPasswordField() {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+    return TextFormField(
+      controller: _confirmPasswordController,
+      obscureText: _obscureConfirmPassword,
+      validator: _validateConfirmPassword,
+      onFieldSubmitted: (_) => _handleLogin(),
+      textInputAction: TextInputAction.go,
+      style: TextStyle(
+        color: Theme.of(context).colorScheme.onSurface,
+        fontSize: 16,
       ),
-      child: TextFormField(
-        controller: _confirmPasswordController,
-        obscureText: _obscureConfirmPassword,
-        validator: _validateConfirmPassword,
-        onFieldSubmitted: (_) => _handleLogin(),
-        textInputAction: TextInputAction.go,
-        style: TextStyle(
-          color: Theme.of(context).colorScheme.onSurface,
-          fontSize: 16,
+      decoration: InputDecoration(
+        labelText: '确认主密码',
+        hintText: '请再次输入密码',
+        prefixIcon: Icon(
+          Icons.lock_outline,
+          color: Theme.of(context).colorScheme.primary,
         ),
-        decoration: InputDecoration(
-          labelText: '确认主密码',
-          hintText: '请再次输入密码',
-          prefixIcon: Icon(
-            Icons.lock_outline,
-            color: Theme.of(context).colorScheme.primary,
+        suffixIcon: IconButton(
+          icon: Icon(
+            _obscureConfirmPassword ? Icons.visibility : Icons.visibility_off,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
-          suffixIcon: IconButton(
-            icon: Icon(
-              _obscureConfirmPassword ? Icons.visibility : Icons.visibility_off,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-            onPressed: () {
-              setState(() {
-                _obscureConfirmPassword = !_obscureConfirmPassword;
-              });
-            },
-          ),
+          onPressed: () {
+            setState(() {
+              _obscureConfirmPassword = !_obscureConfirmPassword;
+            });
+          },
         ),
       ),
     );
@@ -731,38 +690,24 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   Widget _buildLoginButton() {
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Theme.of(context).primaryColor.withOpacity(0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 6),
-          ),
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Theme.of(context).primaryColor.withOpacity(0.9),
-            Theme.of(context).primaryColor,
-            Theme.of(context).primaryColor.withOpacity(0.8),
-          ],
-        ),
+        borderRadius: BorderRadius.zero,
+        boxShadow: Theme.of(context).brightness == Brightness.dark
+            ? null
+            : const [
+                BoxShadow(
+                  color: InternalUiTokens.border,
+                  blurRadius: 0,
+                  offset: Offset(4, 4),
+                ),
+              ],
       ),
       child: ElevatedButton(
         onPressed: _isLoading ? null : _handleLogin,
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.transparent,
+          backgroundColor: Theme.of(context).colorScheme.primary,
           shadowColor: Colors.transparent,
           padding: const EdgeInsets.symmetric(vertical: 18),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
+          shape: InternalUiTheme.dialogShape(context),
           elevation: 0,
         ),
         child: _isLoading

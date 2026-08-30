@@ -5,6 +5,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsService extends ChangeNotifier {
+  static const String defaultAppTitle = '密码管理工具';
+  static const String _legacyDefaultAppTitle = '甜宝塔的密码管理工具';
+
   static final SettingsService _instance = SettingsService._internal();
   static SettingsService get instance => _instance;
 
@@ -13,7 +16,7 @@ class SettingsService extends ChangeNotifier {
   SharedPreferences? _prefs;
 
   // 设置项
-  String _appTitle = '甜宝塔的密码管理工具';
+  String _appTitle = defaultAppTitle;
   String? _logoPath;
   String? _backgroundPath;
   int _lockTimeoutMinutes = 30;
@@ -44,18 +47,26 @@ class SettingsService extends ChangeNotifier {
       return;
     }
 
-    _appTitle = _prefs!.getString('app_title') ?? '甜宝塔的密码管理工具';
+    final savedTitle = _prefs!.getString('app_title');
+    if (savedTitle == _legacyDefaultAppTitle) {
+      _appTitle = defaultAppTitle;
+      await _prefs!.setString('app_title', defaultAppTitle);
+    } else {
+      _appTitle = savedTitle ?? defaultAppTitle;
+    }
     _logoPath = _prefs!.getString('logo_path');
     _backgroundPath = _prefs!.getString('background_path');
-    
+
     // 详细记录锁定超时时间的加载
     final savedValue = _prefs!.getInt('lock_timeout_minutes');
-    print('🔍 [SettingsService] 从SharedPreferences读取 lock_timeout_minutes: $savedValue');
-    
+    print(
+        '🔍 [SettingsService] 从SharedPreferences读取 lock_timeout_minutes: $savedValue');
+
     _lockTimeoutMinutes = savedValue ?? 30;
-    
+
     print('🔍 [SettingsService] 最终使用的锁定超时时间: $_lockTimeoutMinutes 分钟');
-    print('🔍 [SettingsService] 是否使用默认值: ${savedValue == null ? "是 (30)" : "否"}');
+    print(
+        '🔍 [SettingsService] 是否使用默认值: ${savedValue == null ? "是 (30)" : "否"}');
 
     notifyListeners();
   }
@@ -173,21 +184,25 @@ class SettingsService extends ChangeNotifier {
 
   /// 设置锁定超时时间（分钟）
   Future<void> setLockTimeout(int minutes) async {
+    if (minutes < 1 || minutes > 1440) {
+      throw ArgumentError('超时时间必须在1-1440分钟之间');
+    }
+
     if (_prefs == null) {
       print('⚠️ [SettingsService] _prefs 为 null，无法保存锁定超时时间');
       return;
     }
 
     print('💾 [SettingsService] 正在保存锁定超时时间: $minutes 分钟');
-    
+
     _lockTimeoutMinutes = minutes;
     await _prefs!.setInt('lock_timeout_minutes', minutes);
-    
+
     // 验证保存是否成功
     final savedValue = _prefs!.getInt('lock_timeout_minutes');
     print('✅ [SettingsService] 保存完成，验证读取值: $savedValue');
     print('✅ [SettingsService] 当前内存中的值: $_lockTimeoutMinutes');
-    
+
     notifyListeners();
   }
 

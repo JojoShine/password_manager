@@ -1,7 +1,8 @@
 /// 应用设置模型
 class AppSettings {
   final String? masterPasswordHash; // 主密码哈希
-  final int autoLockTimeoutMinutes; // 自动锁定超时时间（分钟）
+  // 仅为兼容旧数据保留；当前锁定时长由 SettingsService 统一管理。
+  final int autoLockTimeoutMinutes;
   final DateTime? lastUnlockTime; // 最后解锁时间
   final bool biometricEnabled; // 是否启用生物识别
   final bool isFirstLaunch; // 是否首次启动
@@ -11,11 +12,11 @@ class AppSettings {
 
   AppSettings({
     this.masterPasswordHash,
-    this.autoLockTimeoutMinutes = 5,
+    this.autoLockTimeoutMinutes = 30,
     this.lastUnlockTime,
     this.biometricEnabled = false,
     this.isFirstLaunch = true,
-    this.appVersion = '1.0.0',
+    this.appVersion = '3.0.0',
     DateTime? createdAt,
     DateTime? updatedAt,
   })  : createdAt = createdAt ?? DateTime.now(),
@@ -25,7 +26,7 @@ class AppSettings {
   factory AppSettings.fromMap(Map<String, dynamic> map) {
     return AppSettings(
       masterPasswordHash: map['master_password_hash'] as String?,
-      autoLockTimeoutMinutes: map['auto_lock_timeout_minutes'] as int? ?? 5,
+      autoLockTimeoutMinutes: map['auto_lock_timeout_minutes'] as int? ?? 30,
       lastUnlockTime: map['last_unlock_time'] != null
           ? DateTime.parse(map['last_unlock_time'] as String)
           : null,

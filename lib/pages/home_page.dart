@@ -22,9 +22,10 @@ import '../widgets/export_options_dialog.dart';
 import '../widgets/footer.dart';
 import '../widgets/password_add_dialog.dart';
 import '../widgets/password_generator_dialog.dart';
+import '../widgets/pixel_category_icon.dart';
+import '../widgets/pixel_empty_state_icon.dart';
 import '../widgets/theme_toggle_button.dart';
 import 'browser_extension_page.dart';
-import 'login_page.dart';
 import 'settings_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -45,9 +46,6 @@ class _HomePageState extends State<HomePage> {
 
   // 事件总线订阅
   late StreamSubscription<AppEvent> _eventSubscription;
-
-  // 认证检查定时器
-  Timer? _authCheckTimer;
 
   // 获取所有分类
   List<String> get _categories =>
@@ -99,42 +97,7 @@ class _HomePageState extends State<HomePage> {
       }
     };
 
-    // 启动周期性认证检查
-    _startAuthCheck();
-
     _loadPasswords();
-  }
-
-  /// 启动周期性认证检查
-  void _startAuthCheck() {
-    // 每30秒检查一次认证状态
-    _authCheckTimer =
-        Timer.periodic(const Duration(seconds: 30), (timer) async {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-
-      try {
-        final needsAuth = await _authService.needsAuthentication();
-        if (needsAuth) {
-          _navigateToLogin();
-          timer.cancel();
-        }
-      } catch (e) {
-        // 忽略检查失败，继续下次检查
-      }
-    });
-  }
-
-  /// 跳转到登录页面
-  void _navigateToLogin() {
-    if (mounted) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => const LoginPage()),
-        (route) => false,
-      );
-    }
   }
 
   /// 加载密码数据（从安全存储加载）
@@ -156,7 +119,6 @@ class _HomePageState extends State<HomePage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('加载密码失败: $e'),
-            backgroundColor: Colors.red,
           ),
         );
       }
@@ -197,7 +159,6 @@ class _HomePageState extends State<HomePage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('数据加载完成 (最后备份: $formatTime)'),
-            backgroundColor: Colors.green,
             duration: const Duration(seconds: 2),
           ),
         );
@@ -238,18 +199,12 @@ class _HomePageState extends State<HomePage> {
   void dispose() {
     _searchController.dispose();
     _eventSubscription.cancel(); // 取消事件监听
-    _authCheckTimer?.cancel(); // 取消认证检查定时器
     super.dispose();
   }
 
   /// 锁定应用
   Future<void> _lockApp() async {
     await _authService.lockApp();
-    if (mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const LoginPage()),
-      );
-    }
   }
 
   /// 显示版本信息弹窗
@@ -261,136 +216,34 @@ class _HomePageState extends State<HomePage> {
       barrierColor: Colors.black.withOpacity(0.5), // 统一遮罩层透明度
       builder: (context) => Dialog(
         backgroundColor: Colors.transparent, // 设置Dialog背景为透明
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: InternalUiTheme.dialogShape(context, darkRadius: 20),
         child: Container(
           constraints: const BoxConstraints(maxWidth: 500), // 移除高度限制
           decoration: BoxDecoration(
-            // 根据主题模式设置精确的背景色
-            color: isDark
-                ? const Color(0xFF1E1E1E) // 深色模式：深灰色背景
-                : Colors.white, // 浅色模式：纯白背景
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: isDark
-                    ? Colors.black.withOpacity(0.8) // 深色模式：更强的阴影
-                    : Colors.black.withOpacity(0.15), // 浅色模式：轻微阴影
-                blurRadius: isDark ? 24 : 16,
-                offset: const Offset(0, 8),
-                spreadRadius: isDark ? 2 : 0,
-              ),
-            ],
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: InternalUiTheme.dialogRadius(context, darkRadius: 20),
+            border: Border.all(
+              color: isDark
+                  ? InternalUiTokens.darkBorder
+                  : InternalUiTokens.border,
+              width: 2,
+            ),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // 标题栏
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  // 标题栏使用更精确的渐变背景
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: isDark
-                        ? [
-                            const Color(0xFF2A2A2A), // 深色模式：深灰渐变
-                            const Color(0xFF1A1A1A),
-                          ]
-                        : [
-                            const Color(0xFFF8F9FA), // 浅色模式：浅灰渐变
-                            const Color(0xFFE9ECEF),
-                          ],
-                  ),
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(20),
-                    topRight: Radius.circular(20),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Theme.of(context).colorScheme.primary,
-                            Theme.of(context)
-                                .colorScheme
-                                .primary
-                                .withOpacity(0.8),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .primary
-                                .withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.security,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '关于应用',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: isDark
-                                  ? Colors.white
-                                  : const Color(0xFF1A1A1A),
-                            ),
-                          ),
-                          Text(
-                            '版本信息与功能介绍',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: isDark
-                                  ? Colors.white.withOpacity(0.7)
-                                  : const Color(0xFF666666),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: Icon(
-                        Icons.close,
-                        color: isDark
-                            ? Colors.white.withOpacity(0.8)
-                            : const Color(0xFF666666),
-                      ),
-                      splashRadius: 20,
-                      tooltip: '关闭',
-                    ),
-                  ],
-                ),
+              PixelDialogHeader(
+                title: '关于应用',
+                subtitle: '版本信息与功能介绍',
+                icon: Icons.security,
+                onClose: () => Navigator.of(context).pop(),
               ),
               // 内容区域 - 移除 Expanded 和 SingleChildScrollView
               Container(
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(20),
-                    bottomRight: Radius.circular(20),
-                  ),
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius:
+                      InternalUiTheme.dialogRadius(context, darkRadius: 20),
                 ),
                 padding: const EdgeInsets.all(24),
                 child: FutureBuilder<Map<String, String>>(
@@ -409,19 +262,7 @@ class _HomePageState extends State<HomePage> {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildVersionInfoRow(
-                            '应用名称', appInfo['appName'] ?? '密码管理器'),
-                        const SizedBox(height: 16),
-                        _buildVersionInfoRow(
-                            '版本号', appInfo['version'] ?? '3.0.0'),
-                        const SizedBox(height: 16),
-                        _buildVersionInfoRow(
-                            '构建号', appInfo['buildNumber'] ?? '1'),
-                        const SizedBox(height: 16),
-                        _buildVersionInfoRow(
-                            '包名',
-                            appInfo['packageName'] ??
-                                'com.example.password_manager'),
+                        _buildVersionInfoTable(appInfo),
                         const SizedBox(height: 24),
                         // 功能特性卡片
                         Container(
@@ -430,13 +271,14 @@ class _HomePageState extends State<HomePage> {
                           decoration: BoxDecoration(
                             color: isDark
                                 ? const Color(0xFF2A2A2A) // 深色模式：深灰背景
-                                : const Color(0xFFF8F9FA), // 浅色模式：浅灰背景
-                            borderRadius: BorderRadius.circular(16),
+                                : InternalUiTokens.weakBackground,
+                            borderRadius: InternalUiTheme.dialogRadius(context,
+                                darkRadius: 16),
                             border: Border.all(
                               color: isDark
                                   ? const Color(0xFF404040) // 深色模式：深色边框
-                                  : const Color(0xFFE9ECEF), // 浅色模式：浅色边框
-                              width: 1,
+                                  : InternalUiTokens.border,
+                              width: 2,
                             ),
                           ),
                           child: Column(
@@ -491,12 +333,14 @@ class _HomePageState extends State<HomePage> {
                           decoration: BoxDecoration(
                             color: isDark
                                 ? Colors.green.withOpacity(0.1) // 深色模式：绿色半透明
-                                : Colors.green.withOpacity(0.05), // 浅色模式：绿色更淡
-                            borderRadius: BorderRadius.circular(12),
+                                : InternalUiTokens.surface,
+                            borderRadius: InternalUiTheme.dialogRadius(context,
+                                darkRadius: 12),
                             border: Border.all(
                               color: isDark
                                   ? Colors.green.withOpacity(0.3) // 深色模式：绿色边框
-                                  : Colors.green.withOpacity(0.2), // 浅色模式：淡绿色边框
+                                  : InternalUiTokens.border,
+                              width: 2,
                             ),
                           ),
                           child: Row(
@@ -556,57 +400,75 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  /// 构建版本信息行
-  Widget _buildVersionInfoRow(String label, String value) {
+  /// 构建对齐的版本信息表格
+  Widget _buildVersionInfoTable(Map<String, String> appInfo) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final rows = <(String, String)>[
+      ('应用名称', appInfo['appName'] ?? '密码管理器'),
+      ('版本号', appInfo['version'] ?? '3.0.0'),
+      ('构建号', appInfo['buildNumber'] ?? '1'),
+      ('包名', appInfo['packageName'] ?? 'com.example.password_manager'),
+    ];
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 80,
-          child: Text(
-            label,
-            style: TextStyle(
-              fontWeight: FontWeight.w500,
-              color: isDark
-                  ? Colors.white.withOpacity(0.7) // 深色模式：半透明白色
-                  : const Color(0xFF666666), // 浅色模式：中等灰色
-              fontSize: 14,
-            ),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? const Color(0xFF2A2A2A) // 深色模式：深灰背景
-                  : const Color(0xFFF8F9FA), // 浅色模式：浅灰背景
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: isDark
-                    ? const Color(0xFF404040) // 深色模式：深色边框
-                    : const Color(0xFFE9ECEF), // 浅色模式：浅色边框
-                width: 1,
+    return Table(
+      columnWidths: const {
+        0: FixedColumnWidth(88),
+        1: FlexColumnWidth(),
+      },
+      defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+      children: List.generate(rows.length, (index) {
+        final row = rows[index];
+        final bottom = index == rows.length - 1 ? 0.0 : 10.0;
+        return TableRow(
+          children: [
+            Padding(
+              padding: EdgeInsets.only(right: 12, bottom: bottom),
+              child: Text(
+                row.$1,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: isDark
+                      ? InternalUiTokens.darkMuted
+                      : InternalUiTokens.muted,
+                  fontSize: 14,
+                ),
               ),
             ),
-            child: Text(
-              value,
-              style: TextStyle(
-                color: isDark
-                    ? Colors.white.withOpacity(0.9) // 深色模式：亮白色
-                    : const Color(0xFF1A1A1A), // 浅色模式：深黑色
-                fontFamily: 'monospace',
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                letterSpacing: 0.5, // 增加字符间距，提高可读性
+            Padding(
+              padding: EdgeInsets.only(bottom: bottom),
+              child: Container(
+                constraints: const BoxConstraints(minHeight: 38),
+                alignment: Alignment.centerLeft,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? InternalUiTokens.darkRaised
+                      : InternalUiTokens.surface,
+                  border: Border.all(
+                    color: isDark
+                        ? InternalUiTokens.darkBorder
+                        : InternalUiTokens.border,
+                    width: 2,
+                  ),
+                ),
+                child: Text(
+                  row.$2,
+                  style: TextStyle(
+                    color: isDark
+                        ? InternalUiTokens.darkInk
+                        : InternalUiTokens.ink,
+                    fontFamily: 'monospace',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.5,
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
-      ],
+          ],
+        );
+      }),
     );
   }
 
@@ -632,58 +494,77 @@ class _HomePageState extends State<HomePage> {
   void _showImportExportMenu() {
     showModalBottomSheet(
       context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              '数据管理',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => InternalUiTheme(
+        child: Builder(
+          builder: (context) => Container(
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              border: Theme.of(context).brightness == Brightness.dark
+                  ? null
+                  : const Border(
+                      top: BorderSide(
+                        color: InternalUiTokens.border,
+                        width: 2,
+                      ),
+                    ),
             ),
-            const SizedBox(height: 20),
-            ListTile(
-              leading: const Icon(Icons.upload_file),
-              title: const Text('导出为JSON'),
-              subtitle: const Text('备份所有密码数据'),
-              onTap: () {
-                Navigator.pop(context);
-                _exportPasswords();
-              },
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                PixelDialogHeader(
+                  title: '数据管理',
+                  subtitle: '导入、导出与备份密码库',
+                  icon: Icons.swap_vert,
+                  color: InternalUiTokens.primary,
+                  onClose: () => Navigator.pop(context),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    children: [
+                      _buildDataAction(context, Icons.upload_file, '导出为 JSON',
+                          '备份所有密码数据', _exportPasswords),
+                      const SizedBox(height: 10),
+                      _buildDataAction(context, Icons.table_chart, '导出为 CSV',
+                          '导出为通用表格格式', _exportToCSV),
+                      const SizedBox(height: 10),
+                      _buildDataAction(context, Icons.download, '从 JSON 导入',
+                          '从 JSON 备份文件恢复', _importPasswords),
+                      const SizedBox(height: 10),
+                      _buildDataAction(context, Icons.table_chart_outlined,
+                          '从 CSV 导入', '从 CSV 表格文件导入', _importFromCSV),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            ListTile(
-              leading: const Icon(Icons.table_chart),
-              title: const Text('导出为CSV'),
-              subtitle: const Text('导出为表格格式'),
-              onTap: () {
-                Navigator.pop(context);
-                _exportToCSV();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.download),
-              title: const Text('从JSON导入'),
-              subtitle: const Text('从JSON文件导入密码'),
-              onTap: () {
-                Navigator.pop(context);
-                _importPasswords();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.table_chart_outlined),
-              title: const Text('从CSV导入'),
-              subtitle: const Text('从CSV表格文件导入密码'),
-              onTap: () {
-                Navigator.pop(context);
-                _importFromCSV();
-              },
-            ),
-          ],
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildDataAction(BuildContext context, IconData icon, String title,
+      String subtitle, VoidCallback action) {
+    return PixelPanel(
+      padding: EdgeInsets.zero,
+      child: ListTile(
+        leading: Container(
+          width: 38,
+          height: 38,
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Theme.of(context).colorScheme.primaryContainer
+              : InternalUiTokens.highlight,
+          child: Icon(icon, color: InternalUiTokens.ink),
+        ),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+        subtitle: Text(subtitle),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () {
+          Navigator.pop(context);
+          action();
+        },
       ),
     );
   }
@@ -706,7 +587,6 @@ class _HomePageState extends State<HomePage> {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('无法获取主密码，请重新登录后再试'),
-                backgroundColor: Colors.red,
               ),
             );
           }
@@ -728,7 +608,6 @@ class _HomePageState extends State<HomePage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('数据已导出到: $fileName $encryptedText'),
-            backgroundColor: Colors.green,
             duration: const Duration(seconds: 4),
             action: SnackBarAction(
               label: '查看',
@@ -743,7 +622,6 @@ class _HomePageState extends State<HomePage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('导出已取消'),
-            backgroundColor: Colors.orange,
           ),
         );
       }
@@ -752,7 +630,6 @@ class _HomePageState extends State<HomePage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('导出失败: $e'),
-            backgroundColor: Colors.red,
           ),
         );
       }
@@ -769,7 +646,6 @@ class _HomePageState extends State<HomePage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('CSV已导出到: ${filePath.split('/').last}'),
-            backgroundColor: Colors.green,
             duration: const Duration(seconds: 4),
             action: SnackBarAction(
               label: '查看',
@@ -784,7 +660,6 @@ class _HomePageState extends State<HomePage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('CSV导出已取消'),
-            backgroundColor: Colors.orange,
           ),
         );
       }
@@ -793,7 +668,6 @@ class _HomePageState extends State<HomePage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('CSV导出失败: $e'),
-            backgroundColor: Colors.red,
           ),
         );
       }
@@ -818,7 +692,6 @@ class _HomePageState extends State<HomePage> {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('导入已取消'),
-                  backgroundColor: Colors.orange,
                 ),
               );
             }
@@ -849,7 +722,6 @@ class _HomePageState extends State<HomePage> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('导入已取消'),
-                    backgroundColor: Colors.orange,
                   ),
                 );
               }
@@ -862,7 +734,6 @@ class _HomePageState extends State<HomePage> {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(result.errorMessage ?? '导入失败'),
-                  backgroundColor: Colors.red,
                 ),
               );
             }
@@ -876,7 +747,6 @@ class _HomePageState extends State<HomePage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(result.errorMessage ?? '导入失败'),
-              backgroundColor: Colors.red,
             ),
           );
         }
@@ -888,7 +758,6 @@ class _HomePageState extends State<HomePage> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('文件中没有找到有效的密码数据'),
-              backgroundColor: Colors.orange,
             ),
           );
         }
@@ -901,7 +770,8 @@ class _HomePageState extends State<HomePage> {
 
       for (final imported in result.passwords) {
         final isDuplicate = _allPasswords.any((existing) {
-          final sameWebsite = (existing.website ?? '') == (imported.website ?? '');
+          final sameWebsite =
+              (existing.website ?? '') == (imported.website ?? '');
           final sameUsername = existing.username == imported.username;
           final samePassword = existing.password == imported.password;
           return sameWebsite && sameUsername && samePassword;
@@ -919,7 +789,6 @@ class _HomePageState extends State<HomePage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('文件中 ${result.passwords.length} 个密码均已存在，无需导入'),
-              backgroundColor: Colors.orange,
               duration: const Duration(seconds: 3),
             ),
           );
@@ -967,7 +836,6 @@ class _HomePageState extends State<HomePage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('导入失败: $e'),
-            backgroundColor: Colors.red,
           ),
         );
       }
@@ -1007,7 +875,6 @@ class _HomePageState extends State<HomePage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('"${password.title}" 已复制到剪贴板'),
-          backgroundColor: Colors.green,
           duration: const Duration(seconds: 2),
         ),
       );
@@ -1024,7 +891,6 @@ class _HomePageState extends State<HomePage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(result.errorMessage ?? 'CSV导入失败'),
-              backgroundColor: Colors.red,
             ),
           );
         }
@@ -1036,7 +902,6 @@ class _HomePageState extends State<HomePage> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('CSV文件中没有找到有效的密码数据'),
-              backgroundColor: Colors.orange,
             ),
           );
         }
@@ -1049,7 +914,8 @@ class _HomePageState extends State<HomePage> {
 
       for (final imported in result.passwords) {
         final isDuplicate = _allPasswords.any((existing) {
-          final sameWebsite = (existing.website ?? '') == (imported.website ?? '');
+          final sameWebsite =
+              (existing.website ?? '') == (imported.website ?? '');
           final sameUsername = existing.username == imported.username;
           final samePassword = existing.password == imported.password;
           return sameWebsite && sameUsername && samePassword;
@@ -1067,7 +933,6 @@ class _HomePageState extends State<HomePage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('CSV中 ${result.passwords.length} 个密码均已存在，无需导入'),
-              backgroundColor: Colors.orange,
               duration: const Duration(seconds: 3),
             ),
           );
@@ -1112,7 +977,6 @@ class _HomePageState extends State<HomePage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('CSV导入失败: $e'),
-            backgroundColor: Colors.red,
           ),
         );
       }
@@ -1141,7 +1005,6 @@ class _HomePageState extends State<HomePage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('密码 "${result.title}" 添加成功！'),
-              backgroundColor: Colors.green,
               duration: const Duration(seconds: 2),
             ),
           );
@@ -1151,7 +1014,6 @@ class _HomePageState extends State<HomePage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('保存密码失败: $e'),
-              backgroundColor: Colors.red,
             ),
           );
         }
@@ -1181,7 +1043,6 @@ class _HomePageState extends State<HomePage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('密码 "${result.title}" 生成并保存成功！'),
-              backgroundColor: Colors.green,
               duration: const Duration(seconds: 2),
             ),
           );
@@ -1191,7 +1052,6 @@ class _HomePageState extends State<HomePage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('保存密码失败: $e'),
-              backgroundColor: Colors.red,
             ),
           );
         }
@@ -1232,7 +1092,6 @@ class _HomePageState extends State<HomePage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('密码 "${result.title}" 更新成功！'),
-              backgroundColor: Colors.green,
               duration: const Duration(seconds: 2),
             ),
           );
@@ -1242,7 +1101,6 @@ class _HomePageState extends State<HomePage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('更新密码失败: $e'),
-              backgroundColor: Colors.red,
             ),
           );
         }
@@ -1265,7 +1123,6 @@ class _HomePageState extends State<HomePage> {
           shape: InternalUiTheme.dialogShape(context, darkRadius: 16),
           child: Container(
             width: 420,
-            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: colorScheme.surface,
               borderRadius:
@@ -1273,177 +1130,171 @@ class _HomePageState extends State<HomePage> {
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 标题
-                Row(
-                  children: [
-                    Icon(
-                      Icons.delete_outline,
-                      color: Colors.red.shade600,
-                      size: 24,
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      '删除确认',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.onSurface,
-                      ),
-                    ),
-                  ],
+                PixelDialogHeader(
+                  title: '删除确认',
+                  subtitle: '此操作无法撤销',
+                  icon: Icons.delete_outline,
+                  color: InternalUiTokens.danger,
+                  onClose: () => Navigator.of(context).pop(false),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  '请确认您要删除以下密码条目',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: colorScheme.onSurface.withOpacity(0.7),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // 密码信息
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? colorScheme.surfaceVariant
-                        : Colors.grey.shade50,
-                    border: Border.all(
-                      color:
-                          isDark ? colorScheme.outline : Colors.grey.shade200,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.key,
-                        color: colorScheme.onSurface.withOpacity(0.6),
-                        size: 20,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              password.title,
-                              style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 16,
-                                color: colorScheme.onSurface,
-                              ),
-                            ),
-                            if (password.username.isNotEmpty) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                password.username,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: colorScheme.onSurface.withOpacity(0.6),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-
-                // 警告信息
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50.withOpacity(isDark ? 0.1 : 1.0),
-                    border: Border.all(
-                        color: Colors.red.shade200
-                            .withOpacity(isDark ? 0.5 : 1.0)),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        Icons.warning_outlined,
-                        color: Colors.red.shade700,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      Text('请确认您要删除以下密码条目',
+                          style:
+                              TextStyle(color: colorScheme.onSurfaceVariant)),
+                      const SizedBox(height: 18),
+
+                      // 密码信息
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? colorScheme.surfaceVariant
+                              : Colors.grey.shade50,
+                          borderRadius: InternalUiTheme.dialogRadius(context,
+                              darkRadius: 12),
+                          border: Border.all(
+                            color: isDark
+                                ? colorScheme.outline
+                                : InternalUiTokens.border,
+                            width: 2,
+                          ),
+                        ),
+                        child: Row(
                           children: [
-                            Text(
-                              '警告',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14,
-                                color: Colors.red.shade800,
-                              ),
+                            Icon(
+                              Icons.key,
+                              color: colorScheme.onSurface.withOpacity(0.6),
+                              size: 20,
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '此操作将永久删除该密码条目，无法撤销。请确认您真的要删除此密码。',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.red.shade700,
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    password.title,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 16,
+                                      color: colorScheme.onSurface,
+                                    ),
+                                  ),
+                                  if (password.username.isNotEmpty) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      password.username,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: colorScheme.onSurface
+                                            .withOpacity(0.6),
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
                           ],
                         ),
                       ),
+
+                      const SizedBox(height: 20),
+
+                      // 警告信息
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50
+                              .withOpacity(isDark ? 0.1 : 1.0),
+                          border: Border.all(
+                              color: Colors.red.shade200
+                                  .withOpacity(isDark ? 0.5 : 1.0)),
+                          borderRadius: InternalUiTheme.dialogRadius(context,
+                              darkRadius: 12),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(
+                              Icons.warning_outlined,
+                              color: Colors.red.shade700,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '警告',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                      color: Colors.red.shade800,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '此操作将永久删除该密码条目，无法撤销。请确认您真的要删除此密码。',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.red.shade700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // 操作按钮
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(false),
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 20, vertical: 12),
+                              shape: InternalUiTheme.dialogShape(context,
+                                  darkRadius: 8),
+                            ),
+                            child: Text(
+                              '取消',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: colorScheme.onSurface.withOpacity(0.7),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          ElevatedButton.icon(
+                            onPressed: () => Navigator.of(context).pop(true),
+                            icon: const Icon(Icons.delete, size: 18),
+                            label: const Text(
+                              '删除',
+                              style: TextStyle(fontSize: 14),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red.shade600,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 20, vertical: 12),
+                              shape: InternalUiTheme.dialogShape(context,
+                                  darkRadius: 8),
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // 操作按钮
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(false),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: Text(
-                        '取消',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: colorScheme.onSurface.withOpacity(0.7),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      onPressed: () => Navigator.of(context).pop(true),
-                      icon: const Icon(Icons.delete, size: 18),
-                      label: const Text(
-                        '删除',
-                        style: TextStyle(fontSize: 14),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red.shade600,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
               ],
             ),
@@ -1464,7 +1315,6 @@ class _HomePageState extends State<HomePage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('密码 "${password.title}" 已删除'),
-              backgroundColor: Colors.orange,
               duration: const Duration(seconds: 2),
             ),
           );
@@ -1474,7 +1324,6 @@ class _HomePageState extends State<HomePage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('删除密码失败: $e'),
-              backgroundColor: Colors.red,
             ),
           );
         }
@@ -1499,8 +1348,16 @@ class _HomePageState extends State<HomePage> {
         return Scaffold(
           appBar: AppBar(
             backgroundColor: ThemeService.instance.isDark
-                ? const Color(0xFF121212)
+                ? InternalUiTokens.darkBackground
                 : InternalUiTokens.surface,
+            shape: Border(
+              bottom: BorderSide(
+                color: ThemeService.instance.isDark
+                    ? InternalUiTokens.darkBorder
+                    : InternalUiTokens.border,
+                width: 2,
+              ),
+            ),
             scrolledUnderElevation: 0, // 防止滚动时背景色变化
             title: Row(
               children: [
@@ -1508,20 +1365,16 @@ class _HomePageState extends State<HomePage> {
                   width: 32,
                   height: 32,
                   decoration: BoxDecoration(
-                    borderRadius: ThemeService.instance.isDark
-                        ? BorderRadius.circular(8)
-                        : BorderRadius.zero,
-                    border: ThemeService.instance.isDark
-                        ? null
-                        : Border.all(
-                            color: InternalUiTokens.border,
-                            width: 2,
-                          ),
+                    borderRadius: BorderRadius.zero,
+                    border: Border.all(
+                      color: ThemeService.instance.isDark
+                          ? InternalUiTokens.darkBorder
+                          : InternalUiTokens.border,
+                      width: 2,
+                    ),
                   ),
                   child: ClipRRect(
-                    borderRadius: ThemeService.instance.isDark
-                        ? BorderRadius.circular(8)
-                        : BorderRadius.zero,
+                    borderRadius: BorderRadius.zero,
                     child: SettingsService.instance.hasCustomLogo
                         ? Image.file(
                             File(SettingsService.instance.getLogoImagePath()),
@@ -1530,9 +1383,7 @@ class _HomePageState extends State<HomePage> {
                               return Container(
                                 decoration: BoxDecoration(
                                   color: Theme.of(context).colorScheme.primary,
-                                  borderRadius: ThemeService.instance.isDark
-                                      ? BorderRadius.circular(8)
-                                      : BorderRadius.zero,
+                                  borderRadius: BorderRadius.zero,
                                 ),
                                 child: const Icon(
                                   Icons.security,
@@ -1549,9 +1400,7 @@ class _HomePageState extends State<HomePage> {
                               return Container(
                                 decoration: BoxDecoration(
                                   color: Theme.of(context).colorScheme.primary,
-                                  borderRadius: ThemeService.instance.isDark
-                                      ? BorderRadius.circular(8)
-                                      : BorderRadius.zero,
+                                  borderRadius: BorderRadius.zero,
                                 ),
                                 child: const Icon(
                                   Icons.security,
@@ -1577,12 +1426,12 @@ class _HomePageState extends State<HomePage> {
                           .colorScheme
                           .secondaryContainer
                           .withOpacity(0.7),
-                      borderRadius: ThemeService.instance.isDark
-                          ? BorderRadius.circular(12)
-                          : BorderRadius.zero,
-                      border: ThemeService.instance.isDark
-                          ? null
-                          : Border.all(color: InternalUiTokens.border),
+                      borderRadius: BorderRadius.zero,
+                      border: Border.all(
+                        color: ThemeService.instance.isDark
+                            ? InternalUiTokens.darkBorder
+                            : InternalUiTokens.border,
+                      ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -1672,24 +1521,17 @@ class _HomePageState extends State<HomePage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        boxShadow: ThemeService.instance.isDark
-            ? [
-                BoxShadow(
-                  color: Theme.of(context).colorScheme.shadow.withOpacity(0.1),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ]
-            : null,
-        border: ThemeService.instance.isDark
-            ? null
-            : Border(
-                bottom: BorderSide(
-                  color: InternalUiTokens.border,
-                  width: 2,
-                ),
-              ),
+        color: ThemeService.instance.isDark
+            ? InternalUiTokens.darkSurface
+            : InternalUiTokens.weakBackground,
+        border: Border(
+          bottom: BorderSide(
+            color: ThemeService.instance.isDark
+                ? InternalUiTokens.darkBorder
+                : InternalUiTokens.border,
+            width: 2,
+          ),
+        ),
       ),
       child: Row(
         children: [
@@ -1712,26 +1554,18 @@ class _HomePageState extends State<HomePage> {
                         )
                       : null,
                   border: OutlineInputBorder(
-                    borderRadius: ThemeService.instance.isDark
-                        ? BorderRadius.circular(16)
-                        : BorderRadius.zero,
-                    borderSide: ThemeService.instance.isDark
-                        ? BorderSide.none
-                        : const BorderSide(
-                            color: InternalUiTokens.border,
-                            width: 2,
-                          ),
+                    borderRadius: BorderRadius.zero,
+                    borderSide: BorderSide(
+                      color: ThemeService.instance.isDark
+                          ? InternalUiTokens.darkBorder
+                          : InternalUiTokens.border,
+                      width: 2,
+                    ),
                   ),
                   filled: true,
                   fillColor: ThemeService.instance.isDark
-                      ? Theme.of(context)
-                          .colorScheme
-                          .surfaceVariant
-                          .withOpacity(0.5)
-                      : Theme.of(context)
-                          .colorScheme
-                          .surfaceVariant
-                          .withOpacity(0.8),
+                      ? InternalUiTokens.darkRaised
+                      : InternalUiTokens.surface,
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 20,
                     vertical: 12,
@@ -1753,15 +1587,13 @@ class _HomePageState extends State<HomePage> {
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 shape: RoundedRectangleBorder(
-                  borderRadius: ThemeService.instance.isDark
-                      ? BorderRadius.circular(12)
-                      : BorderRadius.zero,
-                  side: ThemeService.instance.isDark
-                      ? BorderSide.none
-                      : const BorderSide(
-                          color: InternalUiTokens.border,
-                          width: 2,
-                        ),
+                  borderRadius: BorderRadius.zero,
+                  side: BorderSide(
+                    color: ThemeService.instance.isDark
+                        ? InternalUiTokens.darkBorder
+                        : InternalUiTokens.border,
+                    width: 2,
+                  ),
                 ),
               ),
             ),
@@ -1779,15 +1611,13 @@ class _HomePageState extends State<HomePage> {
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 shape: RoundedRectangleBorder(
-                  borderRadius: ThemeService.instance.isDark
-                      ? BorderRadius.circular(12)
-                      : BorderRadius.zero,
-                  side: ThemeService.instance.isDark
-                      ? BorderSide.none
-                      : const BorderSide(
-                          color: InternalUiTokens.border,
-                          width: 2,
-                        ),
+                  borderRadius: BorderRadius.zero,
+                  side: BorderSide(
+                    color: ThemeService.instance.isDark
+                        ? InternalUiTokens.darkBorder
+                        : InternalUiTokens.border,
+                    width: 2,
+                  ),
                 ),
               ),
             ),
@@ -1842,29 +1672,31 @@ class _HomePageState extends State<HomePage> {
                   margin:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    borderRadius: ThemeService.instance.isDark
-                        ? BorderRadius.circular(12)
-                        : BorderRadius.zero,
+                    borderRadius: BorderRadius.zero,
                     color: isSelected
                         ? ThemeService.instance.isDark
-                            ? Theme.of(context)
-                                .colorScheme
-                                .primary
-                                .withOpacity(0.1)
+                            ? InternalUiTokens.darkPrimary
                             : Theme.of(context).colorScheme.primary
                         : null,
-                    border: !ThemeService.instance.isDark && isSelected
-                        ? Border.all(color: InternalUiTokens.border, width: 2)
+                    border: isSelected
+                        ? Border.all(
+                            color: ThemeService.instance.isDark
+                                ? InternalUiTokens.darkBorder
+                                : InternalUiTokens.border,
+                            width: 2,
+                          )
                         : null,
                   ),
                   child: ListTile(
                     dense: true,
                     contentPadding:
                         const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                    leading: Icon(
-                      _getCategoryIcon(category),
+                    leading: PixelCategoryIcon(
+                      category: category,
                       color: isSelected
-                          ? Theme.of(context).colorScheme.primary
+                          ? ThemeService.instance.isDark
+                              ? InternalUiTokens.darkBackground
+                              : Colors.white
                           : Theme.of(context).colorScheme.onSurfaceVariant,
                       size: 20,
                     ),
@@ -1876,7 +1708,7 @@ class _HomePageState extends State<HomePage> {
                             isSelected ? FontWeight.w600 : FontWeight.normal,
                         color: isSelected
                             ? ThemeService.instance.isDark
-                                ? Theme.of(context).colorScheme.primary
+                                ? InternalUiTokens.darkBackground
                                 : Colors.white
                             : Theme.of(context).colorScheme.onSurface,
                       ),
@@ -1888,20 +1720,28 @@ class _HomePageState extends State<HomePage> {
                             decoration: BoxDecoration(
                               color: isSelected
                                   ? ThemeService.instance.isDark
-                                      ? Theme.of(context).colorScheme.primary
+                                      ? InternalUiTokens.darkSurface
                                       : Colors.white
                                   : Theme.of(context)
                                       .colorScheme
                                       .outline
                                       .withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.zero,
+                              border: Border.all(
+                                color: ThemeService.instance.isDark
+                                    ? InternalUiTokens.darkBorder
+                                    : InternalUiTokens.border,
+                                width: 2,
+                              ),
                             ),
                             child: Text(
                               count.toString(),
                               style: TextStyle(
                                 fontSize: 12,
                                 color: isSelected
-                                    ? Colors.white
+                                    ? ThemeService.instance.isDark
+                                        ? InternalUiTokens.darkInk
+                                        : InternalUiTokens.ink
                                     : Theme.of(context)
                                         .colorScheme
                                         .onSurfaceVariant,
@@ -1924,32 +1764,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  /// 获取分类图标
-  IconData _getCategoryIcon(String category) {
-    switch (category) {
-      case '全部':
-        return Icons.all_inclusive;
-      case '社交':
-        return Icons.people;
-      case '邮箱':
-        return Icons.email;
-      case '购物':
-        return Icons.shopping_cart;
-      case '银行':
-        return Icons.account_balance;
-      case '工作':
-        return Icons.work;
-      case '娱乐':
-        return Icons.movie;
-      case '游戏':
-        return Icons.games;
-      case '其他':
-        return Icons.category;
-      default:
-        return Icons.folder;
-    }
-  }
-
   /// 构建空状态界面
   Widget _buildEmptyState() {
     return Center(
@@ -1962,33 +1776,17 @@ class _HomePageState extends State<HomePage> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(60),
+              borderRadius: BorderRadius.zero,
+              border: Border.all(
+                color: Theme.of(context).colorScheme.outline,
+                width: Theme.of(context).brightness == Brightness.dark ? 1 : 2,
+              ),
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(44),
-              child: SettingsService.instance.hasCustomLogo
-                  ? Image.file(
-                      File(SettingsService.instance.getLogoImagePath()),
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Icon(
-                          Icons.security,
-                          size: 80,
-                          color: Theme.of(context).colorScheme.primary,
-                        );
-                      },
-                    )
-                  : Image.asset(
-                      SettingsService.instance.getLogoImagePath(),
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return Icon(
-                          Icons.security,
-                          size: 80,
-                          color: Theme.of(context).colorScheme.primary,
-                        );
-                      },
-                    ),
+            child: PixelEmptyStateIcon(
+              type: PixelEmptyStateType.vault,
+              size: 84,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              accentColor: Theme.of(context).colorScheme.primary,
             ),
           ),
           const SizedBox(height: 32),
@@ -2015,9 +1813,10 @@ class _HomePageState extends State<HomePage> {
             margin: const EdgeInsets.symmetric(horizontal: 32),
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surface,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.zero,
               border: Border.all(
-                color: Theme.of(context).colorScheme.outline.withOpacity(0.5),
+                color: Theme.of(context).colorScheme.outline,
+                width: Theme.of(context).brightness == Brightness.dark ? 1 : 2,
               ),
             ),
             child: Column(
@@ -2068,10 +1867,11 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.search_off,
+            PixelEmptyStateIcon(
+              type: PixelEmptyStateType.search,
               size: 64,
               color: Theme.of(context).colorScheme.onSurfaceVariant,
+              accentColor: Theme.of(context).colorScheme.primary,
             ),
             const SizedBox(height: 16),
             Text(
@@ -2123,13 +1923,12 @@ class _HomePageState extends State<HomePage> {
             color:
                 isLight ? InternalUiTokens.surface : theme.colorScheme.surface,
             shape: RoundedRectangleBorder(
-              borderRadius:
-                  isLight ? BorderRadius.zero : BorderRadius.circular(12),
+              borderRadius: BorderRadius.zero,
               side: BorderSide(
                 color: isLight
                     ? InternalUiTokens.border
-                    : theme.colorScheme.outline.withOpacity(0.2),
-                width: isLight ? 2 : 0.5,
+                    : InternalUiTokens.darkBorder,
+                width: 2,
               ),
             ),
             child: ListTile(
@@ -2142,11 +1941,13 @@ class _HomePageState extends State<HomePage> {
                   color: isLight
                       ? InternalUiTokens.weakBackground
                       : theme.colorScheme.primary,
-                  borderRadius:
-                      isLight ? BorderRadius.zero : BorderRadius.circular(10),
-                  border: isLight
-                      ? Border.all(color: InternalUiTokens.border, width: 2)
-                      : null,
+                  borderRadius: BorderRadius.zero,
+                  border: Border.all(
+                    color: isLight
+                        ? InternalUiTokens.border
+                        : InternalUiTokens.darkBorder,
+                    width: 2,
+                  ),
                 ),
                 child: Center(
                   child: Text(
@@ -2210,7 +2011,7 @@ class _HomePageState extends State<HomePage> {
                           color: isLight
                               ? InternalUiTokens.weakBackground
                               : theme.colorScheme.secondaryContainer,
-                          borderRadius: BorderRadius.circular(isLight ? 4 : 6),
+                          borderRadius: BorderRadius.zero,
                         ),
                         child: Text(
                           password.category ?? '其他',
@@ -2326,7 +2127,6 @@ class _PasswordViewDialogState extends State<_PasswordViewDialog> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('$label已复制到剪贴板'),
-          backgroundColor: Colors.green,
           duration: const Duration(seconds: 2),
         ),
       );
@@ -2398,10 +2198,8 @@ class _PasswordViewDialogState extends State<_PasswordViewDialog> {
                     width: 1,
                   ),
                 ),
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(20),
-                  bottomRight: Radius.circular(20),
-                ),
+                borderRadius:
+                    InternalUiTheme.dialogRadius(context, darkRadius: 20),
               ),
               child: SizedBox(
                 width: double.infinity,
@@ -2409,9 +2207,7 @@ class _PasswordViewDialogState extends State<_PasswordViewDialog> {
                   onPressed: () => Navigator.of(context).pop(),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    shape: InternalUiTheme.dialogShape(context, darkRadius: 12),
                   ),
                   child: const Text('关闭'),
                 ),
@@ -2425,75 +2221,20 @@ class _PasswordViewDialogState extends State<_PasswordViewDialog> {
 
   /// 构建标题栏
   Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
+    return PixelDialogHeader(
+      title: '查看密码',
+      subtitle: widget.password.title,
+      icon: Icons.visibility,
+      color: InternalUiTokens.primary,
+      actions: [
+        IconButton(
+          onPressed: _sharePassword,
+          icon: const Icon(Icons.share),
+          color: Colors.white,
+          tooltip: '分享',
         ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.visibility,
-              color: Colors.white,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '查看密码',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  widget.password.title,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Row(
-            children: [
-              // 分享按钮
-              IconButton(
-                onPressed: _sharePassword,
-                icon: Icon(
-                  Icons.share,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                tooltip: '分享',
-              ),
-              IconButton(
-                onPressed: () => Navigator.of(context).pop(),
-                icon: Icon(
-                  Icons.close,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+      ],
+      onClose: () => Navigator.of(context).pop(),
     );
   }
 
@@ -2503,9 +2244,12 @@ class _PasswordViewDialogState extends State<_PasswordViewDialog> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: InternalUiTheme.dialogRadius(context, darkRadius: 12),
         border: Border.all(
-          color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Theme.of(context).colorScheme.outline.withOpacity(0.2)
+              : InternalUiTokens.border,
+          width: Theme.of(context).brightness == Brightness.dark ? 1 : 2,
         ),
       ),
       child: Row(
@@ -2556,9 +2300,12 @@ class _PasswordViewDialogState extends State<_PasswordViewDialog> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: InternalUiTheme.dialogRadius(context, darkRadius: 12),
         border: Border.all(
-          color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Theme.of(context).colorScheme.outline.withOpacity(0.2)
+              : InternalUiTokens.border,
+          width: Theme.of(context).brightness == Brightness.dark ? 1 : 2,
         ),
       ),
       child: Row(
@@ -2621,9 +2368,12 @@ class _PasswordViewDialogState extends State<_PasswordViewDialog> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: InternalUiTheme.dialogRadius(context, darkRadius: 12),
         border: Border.all(
-          color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Theme.of(context).colorScheme.outline.withOpacity(0.2)
+              : InternalUiTokens.border,
+          width: Theme.of(context).brightness == Brightness.dark ? 1 : 2,
         ),
       ),
       child: Row(
@@ -2674,7 +2424,10 @@ class _PasswordViewDialogState extends State<_PasswordViewDialog> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: InternalUiTheme.dialogRadius(context, darkRadius: 12),
+        border: Theme.of(context).brightness == Brightness.dark
+            ? null
+            : Border.all(color: InternalUiTokens.border, width: 2),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2757,9 +2510,12 @@ class _PasswordViewDialogState extends State<_PasswordViewDialog> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: InternalUiTheme.dialogRadius(context, darkRadius: 12),
         border: Border.all(
-          color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+          color: Theme.of(context).brightness == Brightness.dark
+              ? Theme.of(context).colorScheme.outline.withOpacity(0.2)
+              : InternalUiTokens.border,
+          width: Theme.of(context).brightness == Brightness.dark ? 1 : 2,
         ),
       ),
       child: Row(
@@ -2838,7 +2594,6 @@ class _PasswordViewDialogState extends State<_PasswordViewDialog> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('"${password.title}" 已复制到剪贴板'),
-          backgroundColor: Colors.green,
           duration: const Duration(seconds: 2),
         ),
       );

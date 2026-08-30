@@ -1,9 +1,12 @@
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../services/event_bus.dart';
+import '../services/secure_storage_service.dart';
 import '../services/settings_service.dart';
 import '../theme/internal_ui_theme.dart';
 
@@ -20,11 +23,14 @@ class _SettingsPageState extends State<SettingsPage> {
 
   bool _isLogoLoading = false;
   bool _isBackgroundLoading = false;
+  late Future<String> _dataLocationFuture;
 
   @override
   void initState() {
     super.initState();
     _initializeControllers();
+    _dataLocationFuture =
+        SecureStorageService.instance.getPasswordDataLocation();
   }
 
   void _initializeControllers() {
@@ -57,7 +63,6 @@ class _SettingsPageState extends State<SettingsPage> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Logo设置成功！'),
-              backgroundColor: Colors.green,
             ),
           );
         }
@@ -67,7 +72,6 @@ class _SettingsPageState extends State<SettingsPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('设置Logo失败: $e'),
-            backgroundColor: Colors.red,
           ),
         );
       }
@@ -94,7 +98,6 @@ class _SettingsPageState extends State<SettingsPage> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('背景图片设置成功！'),
-              backgroundColor: Colors.green,
             ),
           );
         }
@@ -104,7 +107,6 @@ class _SettingsPageState extends State<SettingsPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('设置背景图片失败: $e'),
-            backgroundColor: Colors.red,
           ),
         );
       }
@@ -122,7 +124,6 @@ class _SettingsPageState extends State<SettingsPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Logo已重置为默认'),
-            backgroundColor: Colors.orange,
           ),
         );
       }
@@ -131,7 +132,6 @@ class _SettingsPageState extends State<SettingsPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('重置Logo失败: $e'),
-            backgroundColor: Colors.red,
           ),
         );
       }
@@ -147,7 +147,6 @@ class _SettingsPageState extends State<SettingsPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('背景图片已重置为默认'),
-            backgroundColor: Colors.orange,
           ),
         );
       }
@@ -156,7 +155,6 @@ class _SettingsPageState extends State<SettingsPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('重置背景图片失败: $e'),
-            backgroundColor: Colors.red,
           ),
         );
       }
@@ -170,7 +168,6 @@ class _SettingsPageState extends State<SettingsPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('应用标题不能为空'),
-          backgroundColor: Colors.red,
         ),
       );
       return;
@@ -183,7 +180,6 @@ class _SettingsPageState extends State<SettingsPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('应用标题保存成功！'),
-            backgroundColor: Colors.green,
           ),
         );
       }
@@ -192,7 +188,6 @@ class _SettingsPageState extends State<SettingsPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('保存应用标题失败: $e'),
-            backgroundColor: Colors.red,
           ),
         );
       }
@@ -206,7 +201,6 @@ class _SettingsPageState extends State<SettingsPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('锁定时间不能为空'),
-          backgroundColor: Colors.red,
         ),
       );
       return;
@@ -217,7 +211,6 @@ class _SettingsPageState extends State<SettingsPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('锁定时间必须是1-1440分钟之间的数字'),
-          backgroundColor: Colors.red,
         ),
       );
       return;
@@ -230,7 +223,6 @@ class _SettingsPageState extends State<SettingsPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('锁定时间保存成功！'),
-            backgroundColor: Colors.green,
           ),
         );
       }
@@ -239,7 +231,6 @@ class _SettingsPageState extends State<SettingsPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('保存锁定时间失败: $e'),
-            backgroundColor: Colors.red,
           ),
         );
       }
@@ -599,11 +590,312 @@ class _SettingsPageState extends State<SettingsPage> {
                     ],
                   ),
                 ),
+
+                const SizedBox(height: 16),
+
+                _buildDataAndApplicationSection(),
               ],
             ),
           );
         },
       ),
+    );
+  }
+
+  Widget _buildDataAndApplicationSection() {
+    final isDesktop = !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.macOS ||
+            defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.linux);
+
+    return _buildSectionCard(
+      title: '数据与应用',
+      icon: Icons.storage,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '密码数据存放位置',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 10),
+          PixelPanel(
+            child: FutureBuilder<String>(
+              future: _dataLocationFuture,
+              builder: (context, snapshot) => SelectableText(
+                snapshot.data ?? (snapshot.hasError ? '无法获取数据目录' : '正在读取…'),
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ),
+          if (isDesktop) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _openDataDirectory,
+                icon: const Icon(Icons.folder_open),
+                label: const Text('打开数据目录'),
+              ),
+            ),
+          ],
+          const SizedBox(height: 20),
+          Divider(color: Theme.of(context).colorScheme.outline),
+          const SizedBox(height: 12),
+          Text(
+            '重置只会清除密码记录和备份，不会删除主密码、主题、Logo、背景或锁定时间。',
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: 13,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _confirmResetPasswords,
+              icon: const Icon(Icons.delete_forever),
+              label: const Text('一键重置密码数据'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+                foregroundColor: Theme.of(context).colorScheme.onError,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _showUninstallGuide,
+              icon: const Icon(Icons.unarchive_outlined),
+              label: const Text('应用卸载流程'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openDataDirectory() async {
+    try {
+      await SecureStorageService.instance.openPasswordDataLocation();
+    } catch (error) {
+      _showMessage('打开数据目录失败：$error');
+    }
+  }
+
+  Future<void> _confirmResetPasswords() async {
+    try {
+      final count = await SecureStorageService.instance.countPasswords();
+      if (!mounted) return;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        barrierColor: Colors.black.withValues(alpha: .55),
+        builder: (dialogContext) => InternalUiTheme(
+          child: Dialog(
+            shape: InternalUiTheme.dialogShape(dialogContext),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  PixelDialogHeader(
+                    title: '重置密码数据',
+                    subtitle: '此操作不可撤销',
+                    icon: Icons.warning_amber,
+                    color: Theme.of(dialogContext).colorScheme.error,
+                    onClose: () => Navigator.of(dialogContext).pop(false),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        PixelPanel(
+                          child: Text(
+                            '将永久清除 $count 条密码记录及其备份。\n\n主密码和界面设置会保留。',
+                            style: const TextStyle(height: 1.6),
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () =>
+                                    Navigator.of(dialogContext).pop(false),
+                                child: const Text('取消'),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () =>
+                                    Navigator.of(dialogContext).pop(true),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor:
+                                      Theme.of(dialogContext).colorScheme.error,
+                                  foregroundColor: Theme.of(dialogContext)
+                                      .colorScheme
+                                      .onError,
+                                ),
+                                child: const Text('确认清除'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      if (confirmed != true) return;
+      await SecureStorageService.instance.clearPasswords();
+      EventBus.instance.emitPasswordDataChanged();
+      _showMessage('本地密码记录已全部清除');
+    } catch (error) {
+      _showMessage('清除密码数据失败：$error');
+    }
+  }
+
+  Future<void> _showUninstallGuide() async {
+    final instructions = _uninstallInstructions();
+    await showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: .55),
+      builder: (dialogContext) => InternalUiTheme(
+        child: Dialog(
+          shape: InternalUiTheme.dialogShape(dialogContext),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 540),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                PixelDialogHeader(
+                  title: '应用卸载流程',
+                  subtitle: _platformName,
+                  icon: Icons.unarchive_outlined,
+                  onClose: () => Navigator.of(dialogContext).pop(),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        '卸载不会自动删除本地数据。',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: 12),
+                      PixelPanel(
+                        child: Text(instructions,
+                            style: const TextStyle(height: 1.7)),
+                      ),
+                      if (!kIsWeb) ...[
+                        const SizedBox(height: 16),
+                        OutlinedButton.icon(
+                          onPressed: _openDataDirectory,
+                          icon: const Icon(Icons.folder_open),
+                          label: const Text('打开数据目录'),
+                        ),
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          onPressed: _revealApplication,
+                          icon: const Icon(Icons.apps),
+                          label: const Text('打开应用所在位置'),
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      ElevatedButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                        child: const Text('我知道了'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _uninstallInstructions() {
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.macOS:
+        return '1. 如需彻底清理，先使用“一键重置密码数据”。\n'
+            '2. 退出 PasswordManager。\n'
+            '3. 在访达中将 PasswordManager.app 移到废纸篓。\n'
+            '4. 如需移除其他设置，可删除上方数据目录。';
+      case TargetPlatform.windows:
+        return '1. 如需彻底清理，先使用“一键重置密码数据”。\n'
+            '2. 退出 PasswordManager。\n'
+            '3. 打开“设置 > 应用 > 已安装的应用”。\n'
+            '4. 找到 PasswordManager 并选择“卸载”。\n'
+            '5. 如需移除其他设置，可删除上方数据目录。';
+      case TargetPlatform.linux:
+        return '1. 如需彻底清理，先使用“一键重置密码数据”。\n'
+            '2. 退出 PasswordManager。\n'
+            '3. 删除 AppImage，或通过所用软件包管理器卸载。\n'
+            '4. 如需移除其他设置，可删除上方数据目录。';
+      default:
+        return '1. 先清空密码数据。\n2. 从当前平台卸载或移除应用。';
+    }
+  }
+
+  String get _platformName {
+    if (kIsWeb) return 'Web';
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.macOS:
+        return 'macOS';
+      case TargetPlatform.windows:
+        return 'Windows';
+      case TargetPlatform.linux:
+        return 'Linux';
+      case TargetPlatform.android:
+        return 'Android';
+      case TargetPlatform.iOS:
+        return 'iOS';
+      case TargetPlatform.fuchsia:
+        return 'Fuchsia';
+    }
+  }
+
+  Future<void> _revealApplication() async {
+    try {
+      ProcessResult result;
+      if (Platform.isMacOS) {
+        result = await Process.run('open', ['-R', Platform.resolvedExecutable]);
+      } else if (Platform.isWindows) {
+        result = await Process.run(
+          'explorer',
+          ['/select,${Platform.resolvedExecutable}'],
+        );
+      } else {
+        result = await Process.run(
+          'xdg-open',
+          [File(Platform.resolvedExecutable).parent.path],
+        );
+      }
+      if (result.exitCode != 0) throw Exception('系统未能打开应用位置');
+    } catch (error) {
+      _showMessage('打开应用位置失败：$error');
+    }
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
   }
 

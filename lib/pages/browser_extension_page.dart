@@ -482,11 +482,7 @@ class _BrowserExtensionPageState extends State<BrowserExtensionPage> {
                     const Text('已从云端获取最新版本'),
                   ],
                 ),
-                backgroundColor: Colors.blue,
                 duration: const Duration(seconds: 2),
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
               ),
             );
           }
@@ -510,11 +506,7 @@ class _BrowserExtensionPageState extends State<BrowserExtensionPage> {
                   const Text('网络获取失败，使用本地版本'),
                 ],
               ),
-              backgroundColor: Colors.orange,
               duration: const Duration(seconds: 2),
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
             ),
           );
         }
@@ -544,14 +536,9 @@ class _BrowserExtensionPageState extends State<BrowserExtensionPage> {
                     ),
                   ],
                 ),
-                backgroundColor: Colors.green,
                 duration: const Duration(seconds: 4),
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
                 action: SnackBarAction(
                   label: '打开文件夹',
-                  textColor: Colors.white,
                   onPressed: () => _openFileLocation(file.path),
                 ),
               ),
@@ -570,10 +557,6 @@ class _BrowserExtensionPageState extends State<BrowserExtensionPage> {
                 Expanded(child: Text('下载失败: $e')),
               ],
             ),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
         );
       }

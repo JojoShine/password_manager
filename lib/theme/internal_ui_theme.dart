@@ -14,6 +14,15 @@ abstract final class InternalUiTokens {
   static const danger = Color(0xFFB33A31);
   static const success = Color(0xFF427A45);
 
+  static const darkBackground = Color(0xFF151410);
+  static const darkSurface = Color(0xFF211F1B);
+  static const darkRaised = Color(0xFF2B2822);
+  static const darkInk = Color(0xFFF2E9D5);
+  static const darkMuted = Color(0xFFAEA797);
+  static const darkBorder = Color(0xFF777063);
+  static const darkPrimary = Color(0xFF76A2D8);
+  static const darkSecondary = Color(0xFFC66559);
+
   static const controlRadius = 0.0;
   static const surfaceRadius = 0.0;
   static const dialogRadius = 0.0;
@@ -30,14 +39,13 @@ class InternalUiTheme extends StatelessWidget {
     BuildContext context, {
     double darkRadius = 12,
   }) {
-    if (Theme.of(context).brightness == Brightness.dark) {
-      return RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(darkRadius),
-      );
-    }
-    return const RoundedRectangleBorder(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return RoundedRectangleBorder(
       borderRadius: BorderRadius.zero,
-      side: BorderSide(color: InternalUiTokens.border, width: 2),
+      side: BorderSide(
+        color: isDark ? InternalUiTokens.darkBorder : InternalUiTokens.border,
+        width: 2,
+      ),
     );
   }
 
@@ -45,31 +53,42 @@ class InternalUiTheme extends StatelessWidget {
     BuildContext context, {
     double darkRadius = 12,
   }) {
-    return Theme.of(context).brightness == Brightness.dark
-        ? BorderRadius.circular(darkRadius)
-        : BorderRadius.zero;
+    return BorderRadius.zero;
   }
 
   static ThemeData resolve(ThemeData base) {
-    if (base.brightness == Brightness.dark) return base;
-
+    final isDark = base.brightness == Brightness.dark;
     final colors = base.colorScheme.copyWith(
-      primary: InternalUiTokens.primary,
-      onPrimary: Colors.white,
-      primaryContainer: InternalUiTokens.weakBackground,
-      onPrimaryContainer: InternalUiTokens.ink,
-      secondary: InternalUiTokens.secondary,
+      primary: isDark ? InternalUiTokens.darkPrimary : InternalUiTokens.primary,
+      onPrimary: isDark ? InternalUiTokens.darkBackground : Colors.white,
+      primaryContainer: isDark
+          ? InternalUiTokens.darkRaised
+          : InternalUiTokens.weakBackground,
+      onPrimaryContainer:
+          isDark ? InternalUiTokens.darkInk : InternalUiTokens.ink,
+      secondary:
+          isDark ? InternalUiTokens.darkSecondary : InternalUiTokens.secondary,
       onSecondary: Colors.white,
-      secondaryContainer: InternalUiTokens.weakBackground,
-      onSecondaryContainer: InternalUiTokens.ink,
-      surface: InternalUiTokens.surface,
-      onSurface: InternalUiTokens.ink,
-      onSurfaceVariant: InternalUiTokens.muted,
-      outline: InternalUiTokens.border,
+      secondaryContainer: isDark
+          ? InternalUiTokens.darkRaised
+          : InternalUiTokens.weakBackground,
+      onSecondaryContainer:
+          isDark ? InternalUiTokens.darkInk : InternalUiTokens.ink,
+      surface: isDark ? InternalUiTokens.darkSurface : InternalUiTokens.surface,
+      surfaceContainerHighest: isDark
+          ? InternalUiTokens.darkRaised
+          : InternalUiTokens.weakBackground,
+      onSurface: isDark ? InternalUiTokens.darkInk : InternalUiTokens.ink,
+      onSurfaceVariant:
+          isDark ? InternalUiTokens.darkMuted : InternalUiTokens.muted,
+      outline: isDark ? InternalUiTokens.darkBorder : InternalUiTokens.border,
       error: InternalUiTokens.danger,
     );
-    const pixelBorder = BorderSide(color: InternalUiTokens.border, width: 2);
-    const controlShape = RoundedRectangleBorder(
+    final pixelBorder = BorderSide(
+      color: isDark ? InternalUiTokens.darkBorder : InternalUiTokens.border,
+      width: 2,
+    );
+    final controlShape = RoundedRectangleBorder(
       borderRadius: BorderRadius.zero,
       side: pixelBorder,
     );
@@ -99,17 +118,22 @@ class InternalUiTheme extends StatelessWidget {
 
     return base.copyWith(
       colorScheme: colors,
-      scaffoldBackgroundColor: InternalUiTokens.background,
+      scaffoldBackgroundColor: isDark
+          ? InternalUiTokens.darkBackground
+          : InternalUiTokens.background,
       textTheme: pixelTextTheme,
       appBarTheme: base.appBarTheme.copyWith(
-        backgroundColor: InternalUiTokens.background,
-        foregroundColor: InternalUiTokens.ink,
+        backgroundColor: isDark
+            ? InternalUiTokens.darkBackground
+            : InternalUiTokens.background,
+        foregroundColor:
+            isDark ? InternalUiTokens.darkInk : InternalUiTokens.ink,
         elevation: 0,
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
       ),
-      cardTheme: const CardThemeData(
-        color: InternalUiTokens.surface,
+      cardTheme: CardThemeData(
+        color: isDark ? InternalUiTokens.darkSurface : InternalUiTokens.surface,
         elevation: 0,
         shadowColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
@@ -119,8 +143,9 @@ class InternalUiTheme extends StatelessWidget {
           side: pixelBorder,
         ),
       ),
-      dialogTheme: const DialogThemeData(
-        backgroundColor: InternalUiTokens.surface,
+      dialogTheme: DialogThemeData(
+        backgroundColor:
+            isDark ? InternalUiTokens.darkSurface : InternalUiTokens.surface,
         elevation: 0,
         shadowColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
@@ -129,12 +154,38 @@ class InternalUiTheme extends StatelessWidget {
           side: pixelBorder,
         ),
       ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor:
+            isDark ? InternalUiTokens.darkRaised : InternalUiTokens.ink,
+        contentTextStyle: TextStyle(
+          color: isDark ? InternalUiTokens.darkInk : InternalUiTokens.surface,
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.25,
+        ),
+        elevation: 0,
+        behavior: SnackBarBehavior.floating,
+        insetPadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+        actionTextColor: InternalUiTokens.highlight,
+        disabledActionTextColor: InternalUiTokens.muted,
+        closeIconColor:
+            isDark ? InternalUiTokens.darkInk : InternalUiTokens.surface,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.zero,
+          side: BorderSide(color: InternalUiTokens.highlight, width: 2),
+        ),
+      ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: InternalUiTokens.primary,
-          foregroundColor: Colors.white,
-          disabledBackgroundColor: InternalUiTokens.weakBackground,
-          disabledForegroundColor: InternalUiTokens.muted,
+          backgroundColor:
+              isDark ? InternalUiTokens.darkPrimary : InternalUiTokens.primary,
+          foregroundColor:
+              isDark ? InternalUiTokens.darkBackground : Colors.white,
+          disabledBackgroundColor: isDark
+              ? InternalUiTokens.darkRaised
+              : InternalUiTokens.weakBackground,
+          disabledForegroundColor:
+              isDark ? InternalUiTokens.darkMuted : InternalUiTokens.muted,
           elevation: 0,
           shadowColor: Colors.transparent,
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
@@ -143,7 +194,8 @@ class InternalUiTheme extends StatelessWidget {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: InternalUiTokens.ink,
+          foregroundColor:
+              isDark ? InternalUiTokens.darkInk : InternalUiTokens.ink,
           side: pixelBorder,
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
           shape: controlShape,
@@ -151,25 +203,30 @@ class InternalUiTheme extends StatelessWidget {
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: InternalUiTokens.primary,
+          foregroundColor:
+              isDark ? InternalUiTokens.darkPrimary : InternalUiTokens.primary,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           shape: controlShape,
         ),
       ),
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(
-          foregroundColor: InternalUiTokens.primary,
+          foregroundColor:
+              isDark ? InternalUiTokens.darkPrimary : InternalUiTokens.primary,
           shape: controlShape,
         ),
       ),
       inputDecorationTheme: base.inputDecorationTheme.copyWith(
         filled: true,
-        fillColor: InternalUiTokens.surface,
+        fillColor:
+            isDark ? InternalUiTokens.darkRaised : InternalUiTokens.surface,
         border: inputBorder,
         enabledBorder: inputBorder,
         focusedBorder: inputBorder.copyWith(
-          borderSide: const BorderSide(
-            color: InternalUiTokens.primary,
+          borderSide: BorderSide(
+            color: isDark
+                ? InternalUiTokens.darkPrimary
+                : InternalUiTokens.primary,
             width: 3,
           ),
         ),
@@ -182,25 +239,41 @@ class InternalUiTheme extends StatelessWidget {
             width: 1.5,
           ),
         ),
-        labelStyle: const TextStyle(color: InternalUiTokens.muted),
-        floatingLabelStyle: const TextStyle(color: InternalUiTokens.primary),
-        hintStyle: const TextStyle(color: InternalUiTokens.muted),
+        labelStyle: TextStyle(
+          color: isDark ? InternalUiTokens.darkMuted : InternalUiTokens.muted,
+        ),
+        floatingLabelStyle: TextStyle(
+          color:
+              isDark ? InternalUiTokens.darkPrimary : InternalUiTokens.primary,
+        ),
+        hintStyle: TextStyle(
+          color: isDark ? InternalUiTokens.darkMuted : InternalUiTokens.muted,
+        ),
       ),
-      dividerColor: InternalUiTokens.border,
+      dividerColor:
+          isDark ? InternalUiTokens.darkBorder : InternalUiTokens.border,
       checkboxTheme: CheckboxThemeData(
         shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
         side: pixelBorder,
         fillColor: WidgetStateProperty.resolveWith(
           (states) => states.contains(WidgetState.selected)
               ? InternalUiTokens.highlight
-              : InternalUiTokens.surface,
+              : isDark
+                  ? InternalUiTokens.darkSurface
+                  : InternalUiTokens.surface,
         ),
-        checkColor: const WidgetStatePropertyAll(InternalUiTokens.ink),
+        checkColor: WidgetStatePropertyAll(
+          isDark ? InternalUiTokens.darkBackground : InternalUiTokens.ink,
+        ),
       ),
       sliderTheme: base.sliderTheme.copyWith(
-        activeTrackColor: InternalUiTokens.ink,
-        inactiveTrackColor: InternalUiTokens.weakBackground,
-        thumbColor: InternalUiTokens.primary,
+        activeTrackColor:
+            isDark ? InternalUiTokens.darkInk : InternalUiTokens.ink,
+        inactiveTrackColor: isDark
+            ? InternalUiTokens.darkRaised
+            : InternalUiTokens.weakBackground,
+        thumbColor:
+            isDark ? InternalUiTokens.darkPrimary : InternalUiTokens.primary,
         overlayColor: Colors.transparent,
         trackHeight: 6,
         thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
@@ -235,13 +308,10 @@ class InternalSurface extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
-        borderRadius:
-            isDark ? BorderRadius.circular(radius) : BorderRadius.zero,
+        borderRadius: BorderRadius.zero,
         border: Border.all(
-          color: isDark
-              ? theme.colorScheme.outline.withValues(alpha: 0.35)
-              : InternalUiTokens.border,
-          width: isDark ? 1 : 2,
+          color: isDark ? InternalUiTokens.darkBorder : InternalUiTokens.border,
+          width: 2,
         ),
         boxShadow: isDark
             ? null
@@ -254,6 +324,135 @@ class InternalSurface extends StatelessWidget {
               ],
       ),
       child: Padding(padding: padding, child: child),
+    );
+  }
+}
+
+/// Shared title strip for the light-mode pixel dialogs.
+class PixelDialogHeader extends StatelessWidget {
+  const PixelDialogHeader({
+    required this.title,
+    required this.icon,
+    this.subtitle,
+    this.onClose,
+    this.actions = const [],
+    this.color = InternalUiTokens.secondary,
+    super.key,
+  });
+
+  final String title;
+  final String? subtitle;
+  final IconData icon;
+  final VoidCallback? onClose;
+  final List<Widget> actions;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final foreground = isDark ? theme.colorScheme.onSurface : Colors.white;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: BoxDecoration(
+        color: isDark ? theme.colorScheme.surfaceContainerHighest : color,
+        borderRadius: BorderRadius.zero,
+        border: Border(
+          bottom: BorderSide(
+            color: isDark ? theme.colorScheme.outline : InternalUiTokens.border,
+            width: 2,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color:
+                  isDark ? theme.colorScheme.primary : InternalUiTokens.surface,
+              border: Border.all(
+                color: isDark
+                    ? InternalUiTokens.darkBorder
+                    : InternalUiTokens.border,
+                width: 2,
+              ),
+            ),
+            child: Icon(
+              icon,
+              size: 22,
+              color: isDark ? Colors.white : InternalUiTokens.ink,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: foreground,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: .4,
+                  ),
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: foreground.withValues(alpha: .78)),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          ...actions,
+          if (onClose != null)
+            IconButton(
+              onPressed: onClose,
+              icon: const Icon(Icons.close),
+              color: foreground,
+              tooltip: '关闭',
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Crisp content block used inside dialogs.
+class PixelPanel extends StatelessWidget {
+  const PixelPanel(
+      {required this.child,
+      this.padding = const EdgeInsets.all(14),
+      super.key});
+
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    return Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: isDark
+            ? theme.colorScheme.surfaceContainerHighest
+            : InternalUiTokens.surface,
+        borderRadius: BorderRadius.zero,
+        border: Border.all(
+          color: isDark ? theme.colorScheme.outline : InternalUiTokens.border,
+          width: 2,
+        ),
+      ),
+      child: child,
     );
   }
 }

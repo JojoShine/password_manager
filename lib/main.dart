@@ -9,6 +9,8 @@ import 'package:password_manager/services/secure_storage_service.dart';
 import 'package:password_manager/services/settings_service.dart';
 import 'package:password_manager/services/theme_service.dart';
 import 'package:password_manager/services/web_storage_service.dart';
+import 'package:password_manager/utils/desktop_window_layout.dart';
+import 'package:screen_retriever/screen_retriever.dart';
 import 'package:window_manager/window_manager.dart';
 
 void main() async {
@@ -22,9 +24,37 @@ void main() async {
           defaultTargetPlatform == TargetPlatform.macOS)) {
     await windowManager.ensureInitialized();
 
-    const windowOptions = WindowOptions(
-      size: Size(900, 900), // 默认窗口大小：宽1080，高1250
-      minimumSize: Size(400, 600), // 最小窗口大小
+    var windowLayout = fallbackDesktopWindowLayout;
+    try {
+      final primaryDisplay = await screenRetriever.getPrimaryDisplay();
+      final displays = await screenRetriever.getAllDisplays();
+      final cursorPosition = await screenRetriever.getCursorScreenPoint();
+      final visibleWorkArea = selectCurrentVisibleWorkArea(
+        displayAreas: displays.map((display) {
+          final visiblePosition = display.visiblePosition ?? Offset.zero;
+          return (
+            bounds: Rect.fromLTWH(
+              visiblePosition.dx,
+              visiblePosition.dy,
+              display.size.width,
+              display.size.height,
+            ),
+            visibleWorkArea: display.visibleSize ?? display.size,
+          );
+        }).toList(),
+        cursorPosition: cursorPosition,
+        fallbackSize: primaryDisplay.visibleSize ?? primaryDisplay.size,
+      );
+      if (visibleWorkArea.width > 0 && visibleWorkArea.height > 0) {
+        windowLayout = calculateDesktopWindowLayout(visibleWorkArea);
+      }
+    } catch (_) {
+      // 保留安全回退尺寸，避免显示器信息异常阻止应用启动。
+    }
+
+    final windowOptions = WindowOptions(
+      size: windowLayout.initialSize,
+      minimumSize: windowLayout.minimumSize,
       center: true, // 居中显示
       backgroundColor: Colors.transparent,
       skipTaskbar: false,
@@ -43,8 +73,15 @@ void main() async {
   await WebStorageService.instance.initialize();
   // print('✅ 密码存储服务初始化完成');
 
+  String? startupError;
+
   // 初始化安全存储服务（AES加密密钥管理 + 数据迁移）
-  await SecureStorageService.instance.initialize();
+  try {
+    await SecureStorageService.instance.initialize();
+  } catch (e) {
+    debugPrint('安全存储初始化失败：$e');
+    startupError = e.toString();
+  }
 
   // 初始化设置服务
   await SettingsService.instance.init();
@@ -56,7 +93,7 @@ void main() async {
   await AuthService.instance.initialize();
 
   // 启动本地服务器（用于浏览器扩展通信）
-  if (!kIsWeb) {
+  if (!kIsWeb && startupError == null) {
     // print('开始启动本地服务器...');
     try {
       final success = await LocalServerService.instance.startServer();
@@ -67,18 +104,20 @@ void main() async {
       } else {
         // print('❌ 本地服务器启动失败');
       }
-    } catch (e, stackTrace) {
+    } catch (e) {
       // print('❌ 启动本地服务器时出错: $e');
       // print('📋 错误堆栈: $stackTrace');
     }
   }
 
   // main app
-  runApp(const MyApp());
+  runApp(MyApp(startupError: startupError));
 }
 
 class MyApp extends StatefulWidget {
-  const MyApp({super.key});
+  final String? startupError;
+
+  const MyApp({super.key, this.startupError});
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -88,7 +127,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
-    
+
     // 添加应用生命周期监听
     WidgetsBinding.instance.addObserver(this);
 
@@ -103,11 +142,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
-  
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    
+
     // 当应用进入后台或恢复时，确保服务器仍在运行
     if (state == AppLifecycleState.paused) {
       print('应用进入后台，保持服务器运行');
@@ -118,9 +157,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       _ensureServerRunning();
     }
   }
-  
+
   /// 确保服务器正在运行
   Future<void> _ensureServerRunning() async {
+    if (widget.startupError != null) return;
+
     try {
       if (!LocalServerService.instance.isRunning) {
         print('服务器未运行，重新启动...');
@@ -163,7 +204,55 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     return MaterialApp(
       title: 'Password Manager',
       theme: ThemeService.instance.themeData,
-      home: const AuthWrapper(),
+      home: widget.startupError == null
+          ? const AuthWrapper()
+          : SecureStorageErrorPage(details: widget.startupError!),
+    );
+  }
+}
+
+class SecureStorageErrorPage extends StatelessWidget {
+  final String details;
+
+  const SecureStorageErrorPage({super.key, required this.details});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.lock_outline,
+                  size: 48,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  '安全存储不可用',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  '为避免密码以明文保存，应用已停止读取和写入密码。请确认系统钥匙串可用后重新启动应用。',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  details,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -185,11 +274,13 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _authService.addListener(_handleAuthStateChanged);
     _checkAuthStatus();
   }
 
   @override
   void dispose() {
+    _authService.removeListener(_handleAuthStateChanged);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -198,10 +289,26 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
 
-    // 当应用从后台回到前台时，重新检查认证状态
-    if (state == AppLifecycleState.resumed) {
-      _checkAuthStatus();
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.paused) {
+      _authService.markBackgrounded(DateTime.now());
+    } else if (state == AppLifecycleState.resumed) {
+      _resumeFromBackground();
     }
+  }
+
+  Future<void> _resumeFromBackground() async {
+    await _authService.resumeFromBackground(DateTime.now());
+    _handleAuthStateChanged();
+  }
+
+  void _handleAuthStateChanged() {
+    if (!mounted) return;
+    setState(() {
+      _needsAuth = !_authService.isSessionUnlocked;
+      _isLoading = false;
+    });
   }
 
   /// 检查认证状态并更新UI
@@ -214,11 +321,6 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
           _needsAuth = needsAuth;
           _isLoading = false;
         });
-
-        // 如果当前在主页面但需要认证，强制跳转到登录页
-        if (needsAuth && !_isLoading) {
-          _navigateToLogin();
-        }
       }
     } catch (e) {
       if (mounted) {
@@ -227,16 +329,6 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
           _isLoading = false;
         });
       }
-    }
-  }
-
-  /// 跳转到登录页面
-  void _navigateToLogin() {
-    if (mounted) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (context) => const LoginPage()),
-        (route) => false,
-      );
     }
   }
 

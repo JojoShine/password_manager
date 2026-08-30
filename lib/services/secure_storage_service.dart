@@ -1,19 +1,22 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:pointycastle/export.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'local_password_store.dart';
+
 /// 安全存储服务
 ///
 /// 使用 AES-256-CBC 加密密码数据后存入 SharedPreferences，
 /// 加密密钥由 flutter_secure_storage 管理（Android Keystore / iOS Keychain）。
-/// 当安全存储不可用时，自动降级为明文 SharedPreferences。
+/// macOS 与 Web 使用项目本地存储；其他原生平台安全存储不可用时停止读写。
 class SecureStorageService {
-  static final SecureStorageService _instance = SecureStorageService._internal();
+  static final SecureStorageService _instance =
+      SecureStorageService._internal();
   static SecureStorageService get instance => _instance;
   SecureStorageService._internal();
 
@@ -21,6 +24,7 @@ class SecureStorageService {
   static const String _dataKey = 'saved_passwords';
   static const String _backupKey = 'saved_passwords_backup';
   static const String _migratedKey = 'secure_storage_migrated';
+  static const String _legacyMacRestoreKey = 'mac_legacy_data_restore_checked';
 
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
 
@@ -29,6 +33,7 @@ class SecureStorageService {
 
   /// 安全存储是否可用
   bool _secureStorageAvailable = false;
+  LocalPasswordStore? _localPasswordStore;
 
   /// 安全存储是否可用（供外部检查）
   bool get isSecureStorageAvailable => _secureStorageAvailable;
@@ -36,10 +41,27 @@ class SecureStorageService {
   /// 初始化：加载或生成加密密钥
   Future<void> initialize() async {
     if (kIsWeb) {
-      // Web 平台不使用 flutter_secure_storage
+      _secureStorageAvailable = false;
+      _encryptionKey = null;
       return;
     }
 
+    if (_usesDesktopFileStorage) {
+      _localPasswordStore = LocalPasswordStore(
+        directory: Directory(_desktopDataDirectory),
+      );
+      await _localPasswordStore!.directory.create(recursive: true);
+      if (defaultTargetPlatform == TargetPlatform.macOS) {
+        await _restoreLegacyMacDataIfNeeded(_localPasswordStore!);
+      }
+      return;
+    }
+
+    await _initializeSecureStorage();
+    await _migrateIfNeeded();
+  }
+
+  Future<void> _initializeSecureStorage() async {
     try {
       final existingKey = await _secureStorage.read(key: _keyAlias);
       if (existingKey != null) {
@@ -57,16 +79,10 @@ class SecureStorageService {
       }
 
       _secureStorageAvailable = true;
-
-      // 检查是否需要从明文迁移到加密存储
-      await _migrateIfNeeded();
     } catch (e) {
-      debugPrint('SecureStorageService 初始化失败，将使用明文存储: $e');
       _secureStorageAvailable = false;
       _encryptionKey = null;
-
-      // 即使安全存储不可用，也要处理旧格式数据的迁移
-      await _migrateLegacyFormat();
+      throw SecureStorageInitializationException(e);
     }
   }
 
@@ -103,34 +119,17 @@ class SecureStorageService {
     }
   }
 
-  /// 处理旧格式数据（安全存储不可用时的迁移）
-  Future<void> _migrateLegacyFormat() async {
-    final prefs = await SharedPreferences.getInstance();
-    final alreadyMigrated = prefs.getBool(_migratedKey) ?? false;
-    if (alreadyMigrated) return;
-
-    try {
-      // 检查是否有旧的 StringList 格式数据
-      final plainData = prefs.getStringList(_dataKey);
-      if (plainData != null && plainData.isNotEmpty && plainData.first.startsWith('{')) {
-        // 旧格式数据存在，但无法加密迁移，保持原样
-        // 标记迁移检查完成（虽然未加密，但已确认格式）
-      }
-
-      await prefs.setBool(_migratedKey, true);
-    } catch (e) {
-      debugPrint('旧格式迁移检查失败: $e');
-    }
-  }
-
   /// 加载密码数据（自动解密）
   Future<List<String>> loadPasswords() async {
     final prefs = await SharedPreferences.getInstance();
 
-    if (kIsWeb || !_secureStorageAvailable) {
-      // Web 平台或安全存储不可用：直接读取明文 StringList
+    if (kIsWeb) {
       return prefs.getStringList(_dataKey) ?? [];
     }
+    if (_usesDesktopFileStorage) {
+      return _requireLocalPasswordStore().readPasswords();
+    }
+    _ensureSecureStorageAvailable();
 
     try {
       // 尝试读取加密格式（单个 String）
@@ -174,13 +173,22 @@ class SecureStorageService {
   Future<void> savePasswords(List<String> passwordsJson) async {
     final prefs = await SharedPreferences.getInstance();
 
-    if (kIsWeb || !_secureStorageAvailable) {
-      // Web 平台或安全存储不可用：直接保存明文 StringList
+    if (kIsWeb) {
       await prefs.setStringList(_dataKey, passwordsJson);
       await prefs.setStringList(_backupKey, passwordsJson);
-      await prefs.setString('last_backup_time', DateTime.now().toIso8601String());
+      await prefs.setString(
+          'last_backup_time', DateTime.now().toIso8601String());
       return;
     }
+    if (_usesDesktopFileStorage) {
+      await _requireLocalPasswordStore().writePasswords(passwordsJson);
+      await prefs.setString(
+        'last_backup_time',
+        DateTime.now().toIso8601String(),
+      );
+      return;
+    }
+    _ensureSecureStorageAvailable();
 
     // 加密后存储为单个 String
     final encrypted = _encryptData(passwordsJson);
@@ -191,7 +199,7 @@ class SecureStorageService {
 
   /// 加密 JSON 字符串列表并保存
   Future<void> _encryptAndSave(List<String> passwordsJson, String key) async {
-    if (_encryptionKey == null) return;
+    _ensureSecureStorageAvailable();
 
     final prefs = await SharedPreferences.getInstance();
     final jsonStr = jsonEncode(passwordsJson);
@@ -222,7 +230,7 @@ class SecureStorageService {
 
   /// AES-256-CBC 加密字符串
   String _encryptString(String plainText) {
-    if (_encryptionKey == null) return plainText;
+    _ensureSecureStorageAvailable();
 
     final random = Random.secure();
     final iv = Uint8List.fromList(
@@ -260,7 +268,10 @@ class SecureStorageService {
       final ciphertext = allBytes.sublist(16);
 
       final cipher = CBCBlockCipher(AESEngine())
-        ..init(false, ParametersWithIV(KeyParameter(_encryptionKey!), Uint8List.fromList(iv)));
+        ..init(
+            false,
+            ParametersWithIV(
+                KeyParameter(_encryptionKey!), Uint8List.fromList(iv)));
 
       final decryptedBytes = Uint8List(ciphertext.length);
       for (int offset = 0; offset < ciphertext.length; offset += 16) {
@@ -296,4 +307,170 @@ class SecureStorageService {
     }
     return Uint8List.fromList(data.sublist(0, data.length - padLength));
   }
+
+  void _ensureSecureStorageAvailable() {
+    if (!_secureStorageAvailable || _encryptionKey == null) {
+      throw const SecureStorageInitializationException(
+        '系统安全存储不可用',
+      );
+    }
+  }
+
+  Future<String> getPasswordDataLocation() async {
+    if (kIsWeb) return '浏览器本地存储';
+    if (_usesDesktopFileStorage) return _desktopDataDirectory;
+    return '系统安全存储';
+  }
+
+  Future<void> openPasswordDataLocation() async {
+    if (!_usesDesktopFileStorage) {
+      throw const PasswordStoreException('当前平台没有可打开的数据目录');
+    }
+    await _requireLocalPasswordStore().openDataDirectory(_desktopPlatform);
+  }
+
+  Future<int> countPasswords() async => (await loadPasswords()).length;
+
+  Future<void> clearPasswords() async {
+    if (_usesDesktopFileStorage) {
+      await _requireLocalPasswordStore().clearPasswords();
+    }
+    await _removeLegacyPasswordKeys();
+  }
+
+  @visibleForTesting
+  Future<void> clearPasswordsForTesting(LocalPasswordStore store) async {
+    await store.clearPasswords();
+    await _removeLegacyPasswordKeys();
+  }
+
+  @visibleForTesting
+  Future<void> restoreLegacyMacDataForTesting(
+    LocalPasswordStore store,
+    LegacyPreferencesReader reader,
+  ) async {
+    await _restoreLegacyMacData(store, reader);
+  }
+
+  Future<void> _restoreLegacyMacDataIfNeeded(LocalPasswordStore store) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(_legacyMacRestoreKey) ?? false) return;
+
+    final home = Platform.environment['HOME'];
+    if (home == null || home.isEmpty) return;
+    final oldPreferences = File(
+      '$home/Library/Containers/com.jojo.passwordmanager/'
+      'Data/Library/Preferences/com.jojo.passwordmanager.plist',
+    );
+    if (!await oldPreferences.exists()) {
+      await prefs.setBool(_legacyMacRestoreKey, true);
+      return;
+    }
+
+    await _restoreLegacyMacData(
+      store,
+      MacLegacyPreferencesReader(preferencesFile: oldPreferences),
+    );
+    await prefs.setBool(_legacyMacRestoreKey, true);
+  }
+
+  Future<void> _restoreLegacyMacData(
+    LocalPasswordStore store,
+    LegacyPreferencesReader reader,
+  ) async {
+    final values = await reader.readSupportedPreferences();
+    final passwords = _legacyPasswordList(values);
+    if (!await store.passwordFile.exists() && passwords != null) {
+      await store.writePasswords(passwords);
+      final verified = await store.readPasswords();
+      if (!listEquals(verified, passwords)) {
+        throw const PasswordStoreException('旧版密码数据恢复校验失败');
+      }
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    for (final entry in values.entries) {
+      if (entry.key == _dataKey || entry.key == _backupKey) continue;
+      await _setPreference(prefs, entry.key, entry.value);
+    }
+  }
+
+  List<String>? _legacyPasswordList(Map<String, Object> values) {
+    for (final key in [_dataKey, _backupKey]) {
+      final value = values[key];
+      if (value is List<String> && value.isNotEmpty) return value;
+    }
+    return null;
+  }
+
+  Future<void> _setPreference(
+    SharedPreferences prefs,
+    String key,
+    Object value,
+  ) async {
+    if (value is String) {
+      await prefs.setString(key, value);
+    } else if (value is bool) {
+      await prefs.setBool(key, value);
+    } else if (value is int) {
+      await prefs.setInt(key, value);
+    } else if (value is double) {
+      await prefs.setDouble(key, value);
+    } else if (value is List<String>) {
+      await prefs.setStringList(key, value);
+    }
+  }
+
+  Future<void> _removeLegacyPasswordKeys() async {
+    final prefs = await SharedPreferences.getInstance();
+    for (final key in [
+      _dataKey,
+      _backupKey,
+      _migratedKey,
+      'last_backup_time',
+    ]) {
+      await prefs.remove(key);
+    }
+  }
+
+  LocalPasswordStore _requireLocalPasswordStore() {
+    final store = _localPasswordStore;
+    if (store == null) {
+      throw const PasswordStoreException('密码数据目录尚未初始化');
+    }
+    return store;
+  }
+
+  bool get _usesDesktopFileStorage =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.macOS ||
+          defaultTargetPlatform == TargetPlatform.windows ||
+          defaultTargetPlatform == TargetPlatform.linux);
+
+  LocalPasswordPlatform get _desktopPlatform {
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.macOS:
+        return LocalPasswordPlatform.macOS;
+      case TargetPlatform.windows:
+        return LocalPasswordPlatform.windows;
+      case TargetPlatform.linux:
+        return LocalPasswordPlatform.linux;
+      default:
+        throw const PasswordStoreException('当前平台不是桌面平台');
+    }
+  }
+
+  String get _desktopDataDirectory => LocalPasswordStore.resolveDataDirectory(
+        _desktopPlatform,
+        Platform.environment,
+      );
+}
+
+class SecureStorageInitializationException implements Exception {
+  final Object cause;
+
+  const SecureStorageInitializationException(this.cause);
+
+  @override
+  String toString() => '无法使用系统安全存储：$cause';
 }

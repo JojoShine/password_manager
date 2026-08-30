@@ -104,7 +104,6 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('$label已复制到剪贴板'),
-          backgroundColor: Colors.green,
           duration: const Duration(seconds: 2),
         ),
       );
@@ -117,7 +116,6 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('请先生成有效密码'),
-          backgroundColor: Colors.red,
         ),
       );
       return;
@@ -128,7 +126,6 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('请填写标题和用户名'),
-          backgroundColor: Colors.red,
         ),
       );
       return;
@@ -210,23 +207,16 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 20, 16, 18),
       decoration: BoxDecoration(
-        color: isLight
-            ? InternalUiTokens.secondary
-            : theme.colorScheme.primary.withValues(alpha: 0.1),
-        border: isLight
-            ? const Border(
-                bottom: BorderSide(
-                  color: InternalUiTokens.border,
-                  width: 2,
-                ),
-              )
-            : null,
-        borderRadius: isLight
-            ? BorderRadius.zero
-            : const BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
-              ),
+        color:
+            isLight ? InternalUiTokens.secondary : InternalUiTokens.darkRaised,
+        border: Border(
+          bottom: BorderSide(
+            color:
+                isLight ? InternalUiTokens.border : InternalUiTokens.darkBorder,
+            width: 2,
+          ),
+        ),
+        borderRadius: BorderRadius.zero,
       ),
       child: Row(
         children: [
@@ -236,11 +226,13 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
               color: isLight
                   ? InternalUiTokens.surface
                   : theme.colorScheme.primary,
-              borderRadius:
-                  isLight ? BorderRadius.zero : BorderRadius.circular(6),
-              border: isLight
-                  ? Border.all(color: InternalUiTokens.border, width: 2)
-                  : null,
+              borderRadius: BorderRadius.zero,
+              border: Border.all(
+                color: isLight
+                    ? InternalUiTokens.border
+                    : InternalUiTokens.darkBorder,
+                width: 2,
+              ),
             ),
             child: Icon(
               Icons.generating_tokens,
@@ -258,7 +250,7 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: isLight ? Colors.white : theme.colorScheme.onSurface,
+                    color: Colors.white,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -446,25 +438,58 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
           const SizedBox(height: 12),
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              borderRadius: InternalUiTheme.dialogRadius(
-                context,
-                darkRadius: 6,
-              ),
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? InternalUiTokens.darkRaised
+                  : InternalUiTokens.weakBackground,
+              borderRadius: BorderRadius.zero,
               border: Border.all(
-                color: Theme.of(context).colorScheme.outline.withOpacity(0.3),
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? InternalUiTokens.darkBorder
+                    : InternalUiTokens.border,
+                width: 2,
               ),
             ),
-            child: SelectableText(
-              _generatedPassword,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                fontFamily: 'monospace',
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
+            child: Stack(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: SelectableText(
+                    _generatedPassword,
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      fontFamily: 'JetBrainsMono',
+                      letterSpacing: 1.1,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  child: IgnorePointer(
+                    child: Container(
+                      key: const ValueKey('generated-password-pixel-accent'),
+                      width: 8,
+                      height: 8,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ),
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: IgnorePointer(
+                    child: Container(
+                      key: const ValueKey('generated-password-pixel-accent'),
+                      width: 8,
+                      height: 8,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 12),
@@ -712,6 +737,7 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
           runSpacing: 6,
           children: _categories.map((category) {
             final isSelected = _selectedCategory == category;
+            final isDark = Theme.of(context).brightness == Brightness.dark;
             return GestureDetector(
               onTap: () => setState(() => _selectedCategory = category),
               child: Container(
@@ -726,21 +752,48 @@ class _PasswordGeneratorDialogState extends State<PasswordGeneratorDialog> {
                     darkRadius: 4,
                   ),
                   border: Border.all(
-                    color: isSelected
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.outline,
+                    color: isDark
+                        ? InternalUiTokens.darkBorder
+                        : InternalUiTokens.border,
+                    width: 2,
                   ),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: isDark
+                                ? InternalUiTokens.darkBorder
+                                : InternalUiTokens.border,
+                            blurRadius: 0,
+                            offset: const Offset(2, 2),
+                          ),
+                        ]
+                      : null,
                 ),
-                child: Text(
-                  category,
-                  style: TextStyle(
-                    color: isSelected
-                        ? Colors.white
-                        : Theme.of(context).colorScheme.onSurface,
-                    fontWeight:
-                        isSelected ? FontWeight.w600 : FontWeight.normal,
-                    fontSize: 12,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (isSelected) ...[
+                      Container(
+                        width: 7,
+                        height: 7,
+                        color: InternalUiTokens.highlight,
+                      ),
+                      const SizedBox(width: 7),
+                    ],
+                    Text(
+                      category,
+                      style: TextStyle(
+                        color: isSelected
+                            ? isDark
+                                ? InternalUiTokens.darkBackground
+                                : Colors.white
+                            : Theme.of(context).colorScheme.onSurface,
+                        fontWeight:
+                            isSelected ? FontWeight.w700 : FontWeight.normal,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             );
