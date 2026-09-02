@@ -101,6 +101,14 @@ class LocalPasswordStore {
     }
   }
 
+  static String resolveWindowsSelectedDataDirectory(String selectedDirectory) {
+    final trimmed = selectedDirectory.trim().replaceAll(RegExp(r'[\\/]+$'), '');
+    if (trimmed.isEmpty) {
+      throw const PasswordStoreException('请选择有效的数据存储目录');
+    }
+    return '$trimmed\\PasswordManager';
+  }
+
   static String _requiredEnvironment(
     Map<String, String> environment,
     String key,
@@ -159,6 +167,36 @@ class LocalPasswordStore {
     for (final file in [passwordFile, backupFile, temporaryFile]) {
       if (await file.exists()) await file.delete();
     }
+  }
+
+  Future<void> copyPasswordsTo(LocalPasswordStore target) async {
+    if (directory.absolute.path == target.directory.absolute.path) return;
+
+    final passwords = await readPasswords();
+    final targetHasData = await target.passwordFile.exists() ||
+        await target.backupFile.exists() ||
+        await target.temporaryFile.exists();
+    if (targetHasData) {
+      final targetPasswords = await target.readPasswords();
+      if (!_samePasswords(passwords, targetPasswords)) {
+        throw const PasswordStoreException('目标目录已存在其他密码数据，请选择空目录');
+      }
+      return;
+    }
+
+    await target.writePasswords(passwords);
+    final verified = await target.readPasswords();
+    if (!_samePasswords(passwords, verified)) {
+      throw const PasswordStoreException('迁移后的密码数据校验失败');
+    }
+  }
+
+  bool _samePasswords(List<String> left, List<String> right) {
+    if (left.length != right.length) return false;
+    for (var index = 0; index < left.length; index += 1) {
+      if (left[index] != right[index]) return false;
+    }
+    return true;
   }
 
   Future<void> openDataDirectory(LocalPasswordPlatform platform) async {

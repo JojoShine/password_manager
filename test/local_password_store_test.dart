@@ -26,6 +26,22 @@ void main() {
       );
     });
 
+    test('places a selected Windows location in a PasswordManager child folder',
+        () {
+      expect(
+        LocalPasswordStore.resolveWindowsSelectedDataDirectory(
+          r'D:\Portable Apps',
+        ),
+        r'D:\Portable Apps\PasswordManager',
+      );
+      expect(
+        LocalPasswordStore.resolveWindowsSelectedDataDirectory(
+          'D:\\Portable Apps\\',
+        ),
+        r'D:\Portable Apps\PasswordManager',
+      );
+    });
+
     test('resolves Linux XDG data directory with home fallback', () {
       expect(
         LocalPasswordStore.resolveDataDirectory(
@@ -109,6 +125,59 @@ void main() {
       expect(await store.passwordFile.exists(), isFalse);
       expect(await store.backupFile.exists(), isFalse);
       expect(await store.directory.exists(), isTrue);
+    });
+
+    test('migration copies and verifies passwords without deleting the source',
+        () async {
+      final targetDirectory =
+          await Directory.systemTemp.createTemp('pm_store_target_');
+      addTearDown(() async {
+        if (await targetDirectory.exists()) {
+          await targetDirectory.delete(recursive: true);
+        }
+      });
+      final passwords = [
+        jsonEncode({'id': 1, 'title': 'Migrated', 'password': 'secret'}),
+      ];
+      await store.writePasswords(passwords);
+
+      await store.copyPasswordsTo(
+        LocalPasswordStore(directory: targetDirectory),
+      );
+
+      expect(
+        await LocalPasswordStore(directory: targetDirectory).readPasswords(),
+        passwords,
+      );
+      expect(await store.readPasswords(), passwords);
+    });
+
+    test('migration refuses to overwrite different password data', () async {
+      final targetDirectory =
+          await Directory.systemTemp.createTemp('pm_store_target_');
+      addTearDown(() async {
+        if (await targetDirectory.exists()) {
+          await targetDirectory.delete(recursive: true);
+        }
+      });
+      await store.writePasswords([
+        jsonEncode({'id': 1, 'title': 'Source'}),
+      ]);
+      final target = LocalPasswordStore(directory: targetDirectory);
+      await target.writePasswords([
+        jsonEncode({'id': 2, 'title': 'Existing target'}),
+      ]);
+
+      expect(
+        () => store.copyPasswordsTo(target),
+        throwsA(isA<PasswordStoreException>()),
+      );
+      expect(
+        await target.readPasswords(),
+        [
+          jsonEncode({'id': 2, 'title': 'Existing target'})
+        ],
+      );
     });
   });
 

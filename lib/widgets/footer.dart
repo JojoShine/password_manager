@@ -48,6 +48,26 @@ class Footer extends StatelessWidget {
               ),
             ),
           ),
+          InkWell(
+            key: const ValueKey('github-project-link'),
+            onTap: () => _openGitHub(context),
+            borderRadius: BorderRadius.zero,
+            child: Padding(
+              padding: const EdgeInsets.all(5),
+              child: Semantics(
+                label: 'GitHub 项目',
+                button: true,
+                child: Image.asset(
+                  'assets/github-mark.png',
+                  key: const ValueKey('github-project-icon'),
+                  width: 17,
+                  height: 17,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  filterQuality: FilterQuality.high,
+                ),
+              ),
+            ),
+          ),
           Container(
             width: 1,
             height: 16,
@@ -103,6 +123,18 @@ class Footer extends StatelessWidget {
     if (!opened && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('无法打开 tbtparent.me')),
+      );
+    }
+  }
+
+  Future<void> _openGitHub(BuildContext context) async {
+    final opened = await launchUrl(
+      Uri.parse('https://github.com/JojoShine/password_manager'),
+      mode: LaunchMode.externalApplication,
+    );
+    if (!opened && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('无法打开 GitHub 项目')),
       );
     }
   }

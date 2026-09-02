@@ -607,6 +607,8 @@ class _SettingsPageState extends State<SettingsPage> {
         (defaultTargetPlatform == TargetPlatform.macOS ||
             defaultTargetPlatform == TargetPlatform.windows ||
             defaultTargetPlatform == TargetPlatform.linux);
+    final isWindows =
+        !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
 
     return _buildSectionCard(
       title: '数据与应用',
@@ -639,6 +641,17 @@ class _SettingsPageState extends State<SettingsPage> {
                 onPressed: _openDataDirectory,
                 icon: const Icon(Icons.folder_open),
                 label: const Text('打开数据目录'),
+              ),
+            ),
+          ],
+          if (isWindows) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _changeWindowsDataDirectory,
+                icon: const Icon(Icons.drive_file_move_outline),
+                label: const Text('更改密码存储位置'),
               ),
             ),
           ],
@@ -685,6 +698,26 @@ class _SettingsPageState extends State<SettingsPage> {
       await SecureStorageService.instance.openPasswordDataLocation();
     } catch (error) {
       _showMessage('打开数据目录失败：$error');
+    }
+  }
+
+  Future<void> _changeWindowsDataDirectory() async {
+    try {
+      final selectedRoot = await FilePicker.platform.getDirectoryPath(
+        dialogTitle: '选择密码数据存放位置',
+        lockParentWindow: true,
+      );
+      if (selectedRoot == null || selectedRoot.trim().isEmpty) return;
+
+      final location = await SecureStorageService.instance
+          .changeWindowsPasswordDataRoot(selectedRoot);
+      if (!mounted) return;
+      setState(() {
+        _dataLocationFuture = Future.value(location);
+      });
+      _showMessage('密码数据已迁移到新位置');
+    } catch (error) {
+      _showMessage('更改密码存储位置失败：$error');
     }
   }
 

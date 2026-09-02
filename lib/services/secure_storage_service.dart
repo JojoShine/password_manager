@@ -25,6 +25,8 @@ class SecureStorageService {
   static const String _backupKey = 'saved_passwords_backup';
   static const String _migratedKey = 'secure_storage_migrated';
   static const String _legacyMacRestoreKey = 'mac_legacy_data_restore_checked';
+  static const String _windowsDataDirectoryKey =
+      'windows_password_data_directory';
 
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
 
@@ -47,8 +49,13 @@ class SecureStorageService {
     }
 
     if (_usesDesktopFileStorage) {
+      final prefs = await SharedPreferences.getInstance();
+      final configuredDirectory =
+          defaultTargetPlatform == TargetPlatform.windows
+              ? prefs.getString(_windowsDataDirectoryKey)
+              : null;
       _localPasswordStore = LocalPasswordStore(
-        directory: Directory(_desktopDataDirectory),
+        directory: Directory(configuredDirectory ?? _desktopDataDirectory),
       );
       await _localPasswordStore!.directory.create(recursive: true);
       if (defaultTargetPlatform == TargetPlatform.macOS) {
@@ -318,8 +325,36 @@ class SecureStorageService {
 
   Future<String> getPasswordDataLocation() async {
     if (kIsWeb) return '浏览器本地存储';
-    if (_usesDesktopFileStorage) return _desktopDataDirectory;
+    if (_usesDesktopFileStorage) {
+      return _requireLocalPasswordStore().directory.path;
+    }
     return '系统安全存储';
+  }
+
+  Future<String> changeWindowsPasswordDataRoot(String selectedRoot) async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.windows) {
+      throw const PasswordStoreException('仅 Windows 支持更改密码存储位置');
+    }
+
+    final currentStore = _requireLocalPasswordStore();
+    final targetDirectory =
+        LocalPasswordStore.resolveWindowsSelectedDataDirectory(
+      selectedRoot,
+    );
+    final targetStore =
+        LocalPasswordStore(directory: Directory(targetDirectory));
+    await currentStore.copyPasswordsTo(targetStore);
+
+    final prefs = await SharedPreferences.getInstance();
+    final saved = await prefs.setString(
+      _windowsDataDirectoryKey,
+      targetDirectory,
+    );
+    if (!saved) {
+      throw const PasswordStoreException('无法保存新的密码存储位置');
+    }
+    _localPasswordStore = targetStore;
+    return targetDirectory;
   }
 
   Future<void> openPasswordDataLocation() async {

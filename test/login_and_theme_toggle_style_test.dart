@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -49,16 +50,52 @@ void main() {
     expect(tester.getSize(find.byType(Footer)).height, lessThanOrEqualTo(44));
   });
 
+  testWidgets('internal footer places a GitHub icon after the attribution',
+      (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(bottomNavigationBar: Footer())),
+    );
+
+    final attribution = find.text('Powered by TBTparent');
+    final githubIcon = find.byKey(const ValueKey('github-project-link'));
+    final githubImage = find.byKey(const ValueKey('github-project-icon'));
+    expect(githubIcon, findsOneWidget);
+    expect(githubImage, findsOneWidget);
+    expect(
+      (tester.widget<Image>(githubImage).image as AssetImage).assetName,
+      'assets/github-mark.png',
+    );
+    expect(
+      tester.getCenter(githubIcon).dx,
+      greaterThan(tester.getCenter(attribution).dx),
+    );
+    expect(find.byType(Tooltip), findsNothing);
+  });
+
+  test('GitHub icon asset has a transparent background', () async {
+    final bytes = await File('assets/github-mark.png').readAsBytes();
+    final codec = await ui.instantiateImageCodec(bytes);
+    final frame = await codec.getNextFrame();
+    final pixels =
+        await frame.image.toByteData(format: ui.ImageByteFormat.rawRgba);
+
+    expect(pixels!.getUint8(3), 0);
+    frame.image.dispose();
+    codec.dispose();
+  });
+
   testWidgets('internal footer has no top divider', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(home: Scaffold(bottomNavigationBar: Footer())),
     );
 
     final footerContainer = tester.widget<Container>(
-      find.descendant(
-        of: find.byType(Footer),
-        matching: find.byType(Container),
-      ).first,
+      find
+          .descendant(
+            of: find.byType(Footer),
+            matching: find.byType(Container),
+          )
+          .first,
     );
     final decoration = footerContainer.decoration as BoxDecoration?;
 

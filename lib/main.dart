@@ -305,8 +305,14 @@ class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
 
   void _handleAuthStateChanged() {
     if (!mounted) return;
+    final needsAuth = !_authService.isSessionUnlocked;
+    if (needsAuth) {
+      Navigator.maybeOf(context, rootNavigator: true)?.popUntil(
+        (route) => route.isFirst,
+      );
+    }
     setState(() {
-      _needsAuth = !_authService.isSessionUnlocked;
+      _needsAuth = needsAuth;
       _isLoading = false;
     });
   }

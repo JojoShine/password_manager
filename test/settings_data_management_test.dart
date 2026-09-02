@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/foundation.dart';
 import 'package:password_manager/pages/settings_page.dart';
 import 'package:password_manager/theme/internal_ui_theme.dart';
 
@@ -41,5 +42,23 @@ void main() {
     expect(find.byType(PixelDialogHeader), findsOneWidget);
     expect(find.text('卸载不会自动删除本地数据。'), findsOneWidget);
     expect(find.textContaining('清空密码数据'), findsOneWidget);
+  });
+
+  testWidgets('Windows users can change the password storage location',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    try {
+      tester.view.physicalSize = const Size(1000, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(app());
+      await tester.pump();
+
+      expect(find.text('更改密码存储位置'), findsOneWidget);
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
   });
 }

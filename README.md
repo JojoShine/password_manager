@@ -1,245 +1,157 @@
-# 🔐 密码管理器 (Password Manager)
+# 密码管理工具
 
 <div align="center">
 
-![密码管理器](https://img.shields.io/badge/Platform-macOS%20|%20Windows%20|%20Linux%20|%20Android-blue)
-![Flutter](https://img.shields.io/badge/Flutter-3.22.0-blue)
-![License](https://img.shields.io/badge/License-MIT-green)
-![Version](https://img.shields.io/badge/Version-1.0.3-orange)
+<img src="assets/app.png" width="112" alt="密码管理工具图标">
 
-**一款安全、离线、开源的本地密码管理工具**
+**一款像素风格、无需账户、数据保存在本机的桌面密码管理器。**
 
-[下载应用](https://github.com/JojoShine/password_manager/releases) • [查看文档](./APP_STORE_GUIDE.md) • [隐私政策](./PRIVACY_POLICY.md) • [报告问题](https://github.com/JojoShine/password_manager/issues)
+[macOS 下载](https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/PasswordManager-macos.zip) · [Windows 下载](https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/PasswordManager-windows.zip) · [问题反馈](https://github.com/JojoShine/password_manager/issues) · [TBTparent](https://tbtparent.me)
+
+![Version](https://img.shields.io/badge/version-3.0.0-26231f)
+![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-2f67c7)
+![License](https://img.shields.io/badge/license-MIT-d9aa13)
 
 </div>
 
-## ✨ 功能特性
+## 主要功能
 
-### 🔒 安全性
-- **🔐 本地存储**: 所有数据仅存储在设备本地，永不上传云端
-- **🛡️ AES-256加密**: 采用军用级加密算法保护数据
-- **🔑 主密码保护**: 使用PBKDF2算法安全哈希主密码
-- **👁️ 生物识别**: 支持Touch ID / Face ID快速解锁
-- **🔒 自动锁定**: 设定时间后自动锁定应用
+- 使用主密码进入密码库，支持手动锁定和离开后台超时自动锁定。
+- 添加、查看、编辑、删除和搜索密码，按社交、邮箱、购物、银行、工作等分类筛选。
+- 按长度和字符类型生成随机密码，可直接保存为密码条目。
+- 支持 JSON、加密 JSON 和 CSV 的导入、导出与备份。
+- 内置 Chromium 浏览器扩展，支持查询、一键填充和登录成功后提示保存密码。
+- 可查看密码数据文件所在目录，一键清理本地密码记录。
+- Windows 可在设置中更改密码数据存放位置。
+- 像素风格浅色与深色界面，窗口尺寸会结合可用屏幕空间进行调整。
 
-### 💡 智能功能
-- **🎲 密码生成器**: 支持自定义规则生成强密码
-- **📊 安全评估**: 检测弱密码、重复密码和过期密码
-- **🔍 快速搜索**: 支持标题、用户名、网站等多字段搜索
-- **📂 分类管理**: 内置多种分类，支持自定义分类
-- **🏷️ 标签系统**: 灵活的标签管理和筛选
+## 下载与安装
 
-### 🎨 用户体验
-- **🌙 深色模式**: 支持明暗主题自动切换
-- **📱 响应式设计**: 适配各种屏幕尺寸
-- **🎯 现代UI**: 简洁美观的Material Design界面
-- **⚡ 快速操作**: 一键复制、批量操作等便捷功能
-- **🔄 数据备份**: 支持加密/明文导出和导入
+当前发布版本为 `3.0.0`，提供 macOS 和 Windows 桌面版。
 
-### 🌐 跨平台支持
-- **💻 桌面端**: macOS、Windows、Linux
-- **📱 移动端**: Android（iOS版本开发中）
-- **🌍 多语言**: 支持中文界面
+### Windows
 
-## 📱 App Store 发布
+1. 下载 [PasswordManager-windows.zip](https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/PasswordManager-windows.zip)。
+2. 将压缩包放到用于长期存放程序的磁盘或目录中，不要放在临时下载目录。
+3. 完整解压后运行目录中的 `.exe` 文件；不要只复制可执行文件，应用需要同目录中的其他运行文件。
+4. 如需桌面入口，右键 `.exe`，选择“发送到 → 桌面快捷方式”。
 
-本应用正在准备发布到各大应用商店：
+### macOS
 
-### macOS App Store
-- **状态**: 准备中
-- **要求**: macOS 10.14+
-- **特性**: 完整功能，沙盒安全
+1. 下载 [PasswordManager-macos.zip](https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/PasswordManager-macos.zip)。
+2. 解压后，将密码管理工具拖入本机“应用程序”目录。
+3. 从“应用程序”目录启动应用。
 
-### Microsoft Store
-- **状态**: 计划中
-- **要求**: Windows 10+
-- **特性**: 通用Windows平台
+## 首次使用
 
-### Google Play Store
-- **状态**: 计划中
-- **要求**: Android 6.0+
-- **特性**: 移动端优化
+1. 启动应用并设置主密码。主密码不限制长度，但应选择自己能够记住且不易被猜到的内容。
+2. 主密码无法由开发者找回，请妥善保管。
+3. 点击“添加密码”创建第一条记录，或通过右上角的数据菜单导入已有密码。
+4. 建议在录入数据后及时导出一份加密备份，并将备份保存在可靠位置。
 
-## 🚀 快速开始
+## 浏览器扩展
 
-### 下载安装
+扩展支持 Chrome、Edge 等 Chromium 内核浏览器，并通过本机回环地址与正在运行的密码管理工具通信。
 
-#### 从GitHub Releases下载
-1. 访问 [Releases页面](https://github.com/JojoShine/password_manager/releases)
-2. 下载适合您系统的版本：
-   - **macOS**: `PasswordManager-macOS.dmg`
-   - **Windows**: `PasswordManager-Windows.zip`
-   - **Linux**: `PasswordManager-Linux.AppImage`
-   - **Android**: `PasswordManager-Android.apk`
+### 安装
 
-#### 从源码构建
+1. 进入应用，点击顶部的浏览器扩展按钮并下载扩展压缩包。
+2. 建议将压缩包及解压后的扩展目录与应用程序放在一起长期管理，避免误删。
+3. 打开浏览器扩展管理页：Chrome 使用 `chrome://extensions/`，Edge 使用 `edge://extensions/`。
+4. 开启“开发者模式”，点击“加载已解压的扩展程序”，选择扩展目录。
+5. 将扩展固定到浏览器工具栏，方便随时使用。
+
+### 使用
+
+1. 保持密码管理工具运行并完成解锁。
+2. 打开登录网站，点击扩展图标查看当前网站匹配的账号并执行填充。
+3. 输入新账号密码并提交登录后，扩展会等待登录结果；确认登录成功后才显示保存提示。
+
+如果扩展提示连接失败，请先确认桌面应用正在运行且已解锁，再在扩展中重新连接。重新安装应用时，也应重新从最新版应用内下载扩展。
+
+## 数据存放与备份
+
+密码记录只保存在当前设备，不提供账户注册或云同步。
+
+默认数据目录：
+
+- macOS：`~/Library/Application Support/PasswordManager`
+- Windows：`%APPDATA%\PasswordManager`
+
+Windows 用户可在“设置 → 数据与应用”中选择新的存放位置。应用会先复制并校验已有数据；为避免覆盖其他密码库，目标应为空目录。
+
+应用会维护 `passwords.json` 和本地备份文件。桌面数据文件由用户自行保管，主密码用于应用访问控制，并不等同于磁盘加密。建议开启系统磁盘加密，并使用应用的“加密导出”功能保存外部备份。明文 JSON 与 CSV 导出可被直接读取，请勿存放在公开或不可信位置。
+
+“一键重置密码数据”会删除密码记录及其本地备份，但会保留主密码和界面设置。执行前请确认已经完成所需备份。
+
+## 自动锁定
+
+- 应用进入后台后开始计算离开时间，回到前台时检查是否达到锁定时限。
+- 默认自动锁定时间为 30 分钟，可在设置中调整。
+- 手动锁定或自动锁定都会关闭当前打开的业务弹窗并返回解锁页。
+- 连续输错主密码达到限制后，应用会暂时禁止继续尝试。
+
+## 从源码运行
+
+项目的发布构建使用 Flutter `3.41.9`。
+
 ```bash
-# 克隆仓库
 git clone https://github.com/JojoShine/password_manager.git
 cd password_manager
-
-# 安装依赖
 flutter pub get
 
-# 构建应用
-flutter build macos --release    # macOS
-flutter build windows --release  # Windows
-flutter build linux --release    # Linux
-flutter build apk --release      # Android
+# macOS
+flutter run -d macos
+
+# Windows
+flutter run -d windows
 ```
 
-### 首次使用
-1. **设置主密码**: 创建一个强密码来保护您的数据
-2. **启用生物识别**: 可选启用Touch ID/Face ID快速解锁
-3. **添加第一个密码**: 点击"添加密码"开始管理您的账户
-4. **数据备份**: 建议定期导出数据进行备份
+构建发布版本：
 
-## 📖 使用指南
-
-### 基本操作
-- **添加密码**: 点击右上角"+"按钮
-- **搜索密码**: 使用顶部搜索框
-- **编辑密码**: 双击条目或右键选择编辑
-- **复制密码**: 单击密码字段自动复制
-- **批量操作**: 长按选择多个条目
-
-### 高级功能
-- **密码生成**: 在添加界面使用生成器
-- **安全分析**: 在设置中查看安全报告
-- **数据导出**: 设置 → 数据管理 → 导出
-- **主题切换**: 设置 → 外观 → 主题模式
-
-## 🛡️ 隐私与安全
-
-### 数据安全承诺
-- ✅ **零数据收集**: 不收集任何个人信息
-- ✅ **本地存储**: 数据永远在您的设备上
-- ✅ **开源透明**: 源码公开，接受社区审查
-- ✅ **加密保护**: 采用业界标准加密算法
-- ✅ **无网络依赖**: 完全离线工作
-
-### 技术实现
-- **加密算法**: AES-256-GCM
-- **密钥派生**: PBKDF2-SHA256
-- **数据完整性**: HMAC验证
-- **安全存储**: 平台原生密钥库
-
-详细信息请查看 [隐私政策](./PRIVACY_POLICY.md)
-
-## 🏗️ 技术架构
-
-### 技术栈
-- **框架**: Flutter 3.22.0
-- **语言**: Dart
-- **状态管理**: Provider
-- **数据存储**: SharedPreferences + 文件系统
-- **加密**: crypto + dart:convert
-- **UI**: Material Design 3
-
-### 项目结构
+```bash
+flutter build macos --release
+flutter build windows --release
 ```
+
+macOS 构建需要 Xcode；Windows 构建需要 Visual Studio 的桌面 C++ 工具链。
+
+## 项目结构
+
+```text
 lib/
-├── models/           # 数据模型
-├── services/         # 业务服务
-├── pages/            # 页面UI
-├── widgets/          # 通用组件
-├── utils/            # 工具函数
-└── main.dart         # 应用入口
+├── models/       数据模型
+├── pages/        应用页面
+├── services/     存储、认证、导入导出及插件通信
+├── utils/        通用工具
+├── widgets/      像素风格组件
+└── main.dart     应用入口
+
+assets/
+└── files/password_manager_browser.zip   应用内置浏览器扩展包
 ```
 
-### 依赖项
-```yaml
-dependencies:
-  flutter: sdk: flutter
-  shared_preferences: ^2.2.3
-  crypto: ^3.0.3
-  file_picker: ^8.0.0+1
-  package_info_plus: ^4.2.0
-  local_auth: ^2.2.0
-  window_manager: ^0.3.9
-```
+浏览器扩展源码位于同级的 `password_manager_browser` 目录。修改扩展后，需要重新生成并替换应用内的扩展压缩包。
 
-## 🤝 贡献指南
+## 隐私与安全边界
 
-我们欢迎社区贡献！
+- 应用不会把密码库上传到开发者服务器。
+- 浏览器扩展仅通过 `127.0.0.1` 与本机应用通信。
+- 只有在主动下载扩展或点击外部链接时，应用才会访问对应网络地址。
+- 忘记主密码后无法通过开发者服务恢复；请依靠自己保存的主密码和备份文件。
 
-### 如何参与
-1. **Fork** 这个仓库
-2. **创建** 功能分支 (`git checkout -b feature/AmazingFeature`)
-3. **提交** 更改 (`git commit -m 'Add some AmazingFeature'`)
-4. **推送** 到分支 (`git push origin feature/AmazingFeature`)
-5. **创建** Pull Request
+详细说明见 [隐私政策](PRIVACY_POLICY.md) 和 [安全政策](SECURITY.md)。
 
-### 贡献类型
-- 🐛 Bug修复
-- ✨ 新功能开发
-- 📚 文档改进
-- 🌍 多语言翻译
-- 🎨 UI/UX改进
-- 🔒 安全审查
+## 参与贡献
 
-### 开发环境
-```bash
-# 安装Flutter
-flutter doctor
+欢迎提交 Issue 或 Pull Request。开始开发前请阅读 [贡献指南](CONTRIBUTING.md)。
 
-# 克隆项目
-git clone https://github.com/JojoShine/password_manager.git
-cd password_manager
+## 许可证
 
-# 安装依赖
-flutter pub get
-
-# 运行开发版本
-flutter run -d macos  # 或其他平台
-```
-
-## 📋 开发计划
-
-### v1.1.0 (计划中)
-- [ ] iOS版本支持
-- [ ] 云同步选项(端到端加密)
-- [ ] 更多导入格式支持
-- [ ] 密码强度算法改进
-- [ ] 多语言支持扩展
-
-### v1.2.0 (规划中)
-- [ ] 团队共享功能
-- [ ] 审计日志
-- [ ] 二次验证支持
-- [ ] 浏览器扩展
-- [ ] API开放平台
-
-## 📞 支持与反馈
-
-### 获取帮助
-- **GitHub Issues**: [报告问题](https://github.com/JojoShine/password_manager/issues)
-- **邮箱支持**: [您的邮箱] (替换为实际邮箱)
-- **讨论区**: [GitHub Discussions](https://github.com/JojoShine/password_manager/discussions)
-
-### 常见问题
-- **忘记主密码**: 由于采用零知识架构，忘记主密码将无法恢复数据，请务必牢记或安全备份
-- **数据迁移**: 使用导出/导入功能在设备间迁移数据
-- **性能问题**: 大量数据时建议定期清理无用条目
-
-## 📄 许可证
-
-本项目基于 MIT 许可证开源 - 查看 [LICENSE](LICENSE) 文件了解详情
-
-## 🌟 致谢
-
-感谢以下项目和资源：
-- [Flutter团队](https://flutter.dev/) - 优秀的跨平台框架
-- [Material Design](https://material.io/) - 设计系统指导
-- [Flutter社区](https://flutter.dev/community) - 丰富的生态支持
-- 所有贡献者和测试用户
-
----
+本项目基于 [MIT License](LICENSE) 开源。
 
 <div align="center">
 
-**⭐ 如果这个项目对您有帮助，请考虑给我们一个Star！⭐**
-
-Made with ❤️ by [JojoShine](https://github.com/JojoShine)
+Powered by [TBTparent](https://tbtparent.me) · [GitHub](https://github.com/JojoShine/password_manager)
 
 </div>
