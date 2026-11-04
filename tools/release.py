@@ -26,7 +26,7 @@ def validate_version(current, tag=None, previous=None):
     if not match:
         raise ValueError('Expected release version major.minor.patch+build without leading zeros')
     parts = tuple(map(int, match.groups()))
-    if tag and tag != 'v' + current.split('+')[0]:
+    if tag and tag not in (prefix + current.split('+')[0] for prefix in ('v', 'lockora-v')):
         raise ValueError('Tag differs from pubspec version')
     if previous:
         old = validate_version(previous)

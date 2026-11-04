@@ -2,7 +2,7 @@ name: Lockora signed release candidate
 
 on:
   push:
-    tags: ['v*']
+    tags: ['v*', 'lockora-v*']
   workflow_dispatch:
     inputs:
       publish:

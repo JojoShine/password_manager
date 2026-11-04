@@ -53,6 +53,7 @@ class ReleaseTests(unittest.TestCase):
 
     def test_versions_require_both_components_increase(self):
         release.validate_version('3.1.0+5', 'v3.1.0', '3.0.0+4')
+        release.validate_version('3.1.0+5', 'lockora-v3.1.0', '3.0.0+4')
         for current, tag, previous in [('3.1.0+5', 'v3.0.0', None),
                                       ('3.1.0+4', 'v3.1.0', '3.0.0+4'),
                                       ('3.0.0+6', None, '3.1.0+5'),
