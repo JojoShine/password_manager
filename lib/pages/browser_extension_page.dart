@@ -3,7 +3,9 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+
+import '../services/browser_extension_installer.dart';
 
 import '../theme/internal_ui_theme.dart';
 
@@ -16,6 +18,7 @@ class BrowserExtensionPage extends StatefulWidget {
 
 class _BrowserExtensionPageState extends State<BrowserExtensionPage> {
   bool _isDownloading = false;
+  String? _preparedDirectory;
 
   @override
   Widget build(BuildContext context) {
@@ -45,6 +48,8 @@ class _BrowserExtensionPageState extends State<BrowserExtensionPage> {
             _buildFeatures(),
             const SizedBox(height: 24),
             _buildDownloadCard(),
+            const SizedBox(height: 24),
+            _buildQuickInstall(),
             const SizedBox(height: 24),
             _buildInstallSteps(),
             const SizedBox(height: 24),
@@ -289,7 +294,7 @@ class _BrowserExtensionPageState extends State<BrowserExtensionPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '需同时运行密码管理器应用\n仅支持 Chromium 内核浏览器\n请勿删除解压后的文件夹',
+                  '需同时运行 Lockora\n仅支持 Chromium 内核浏览器\n请勿删除解压后的文件夹',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                         height: 1.4,
@@ -301,6 +306,88 @@ class _BrowserExtensionPageState extends State<BrowserExtensionPage> {
         ],
       ),
     );
+  }
+
+  Widget _buildQuickInstall() {
+    return InternalSurface(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('快速安装', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          const Text('自动准备本应用配套的扩展文件。浏览器仍需手动开启开发者模式并选择“加载已解压的扩展程序”。'),
+          const SizedBox(height: 12),
+          ElevatedButton.icon(
+            onPressed: _isDownloading ? null : _prepareExtension,
+            icon: const Icon(Icons.extension),
+            label: Text(_isDownloading ? '正在准备…' : '一键准备扩展'),
+          ),
+          if (_preparedDirectory != null) ...[
+            const SizedBox(height: 12),
+            SelectableText(_preparedDirectory!),
+            const SizedBox(height: 8),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              OutlinedButton(
+                  onPressed: () => _openExtensionManager(false),
+                  child: const Text('打开 Chrome 扩展页')),
+              OutlinedButton(
+                  onPressed: () => _openExtensionManager(true),
+                  child: const Text('打开 Edge 扩展页')),
+              TextButton(
+                  onPressed: () => Clipboard.setData(
+                      ClipboardData(text: _preparedDirectory!)),
+                  child: const Text('复制扩展目录')),
+            ]),
+            const Text('在浏览器中加载以上目录即可。更新后请加载新版本目录，并移除旧版扩展。'),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _prepareExtension() async {
+    setState(() => _isDownloading = true);
+    try {
+      final bundle =
+          await rootBundle.load('assets/files/password_manager_browser.zip');
+      final support = await getApplicationSupportDirectory();
+      final directory = await BrowserExtensionInstaller.prepare(
+        bundle.buffer.asUint8List(bundle.offsetInBytes, bundle.lengthInBytes),
+        Directory('${support.path}${Platform.pathSeparator}browser_extension'),
+      );
+      if (!mounted) return;
+      setState(() => _preparedDirectory = directory.path);
+    } catch (error) {
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('准备扩展失败：$error')));
+    } finally {
+      if (mounted) setState(() => _isDownloading = false);
+    }
+  }
+
+  Future<void> _openExtensionManager(bool edge) async {
+    final address = edge ? 'edge://extensions/' : 'chrome://extensions/';
+    try {
+      if (Platform.isMacOS) {
+        final result = await Process.run(
+            'open', ['-a', edge ? 'Microsoft Edge' : 'Google Chrome', address]);
+        if (result.exitCode != 0) throw Exception('浏览器未安装');
+      } else if (Platform.isWindows) {
+        final result = await Process.run(
+            'cmd', ['/c', 'start', '', edge ? 'msedge' : 'chrome', address]);
+        if (result.exitCode != 0) throw Exception('浏览器未安装');
+      } else {
+        await Process.start(
+            edge ? 'microsoft-edge' : 'google-chrome', [address]);
+      }
+    } catch (_) {
+      await Clipboard.setData(ClipboardData(text: address));
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('扩展页地址已复制，请粘贴到浏览器地址栏打开')));
+    }
   }
 
   Widget _buildInstallSteps() {
@@ -382,7 +469,7 @@ class _BrowserExtensionPageState extends State<BrowserExtensionPage> {
 
   Widget _buildUsageSteps() {
     final usageSteps = [
-      {'icon': Icons.play_arrow, 'text': '启动密码管理器应用'},
+      {'icon': Icons.play_arrow, 'text': '启动 Lockora'},
       {'icon': Icons.web, 'text': '访问需要登录的网站'},
       {'icon': Icons.touch_app, 'text': '点击扩展图标自动填充'},
       {'icon': Icons.save_alt, 'text': '自动提示保存新密码'},
@@ -457,62 +544,12 @@ class _BrowserExtensionPageState extends State<BrowserExtensionPage> {
     });
 
     try {
-      Uint8List? bytes;
+      final byteData =
+          await rootBundle.load('assets/files/password_manager_browser.zip');
+      final bytes = byteData.buffer
+          .asUint8List(byteData.offsetInBytes, byteData.lengthInBytes);
 
-      // 首先尝试从公网地址下载
-      try {
-        final response = await http.get(
-          Uri.parse(
-              'https://tbt-product-station.oss-cn-shanghai.aliyuncs.com/password_manager_browser/password_manager_browser.zip'),
-          headers: {
-            'User-Agent': 'PasswordManager/1.0',
-          },
-        ).timeout(const Duration(seconds: 30));
-
-        if (response.statusCode == 200) {
-          bytes = response.bodyBytes;
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Row(
-                  children: [
-                    const Icon(Icons.cloud_download,
-                        color: Colors.white, size: 20),
-                    const SizedBox(width: 8),
-                    const Text('已从云端获取最新版本'),
-                  ],
-                ),
-                duration: const Duration(seconds: 2),
-              ),
-            );
-          }
-        } else {
-          throw Exception('HTTP ${response.statusCode}');
-        }
-      } catch (e) {
-        // 网络下载失败，回退到本地assets
-        // print('网络下载失败，使用本地版本: $e');
-        final byteData =
-            await rootBundle.load('assets/files/password_manager_browser.zip');
-        bytes = byteData.buffer.asUint8List();
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  const Icon(Icons.folder, color: Colors.white, size: 20),
-                  const SizedBox(width: 8),
-                  const Text('网络获取失败，使用本地版本'),
-                ],
-              ),
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        }
-      }
-
-      if (bytes != null) {
+      {
         String? outputFile = await FilePicker.platform.saveFile(
           dialogTitle: '保存浏览器扩展',
           fileName: 'password_manager_browser.zip',
@@ -562,9 +599,7 @@ class _BrowserExtensionPageState extends State<BrowserExtensionPage> {
         );
       }
     } finally {
-      setState(() {
-        _isDownloading = false;
-      });
+      if (mounted) setState(() => _isDownloading = false);
     }
   }
 

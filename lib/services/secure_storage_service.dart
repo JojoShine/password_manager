@@ -8,6 +8,9 @@ import 'package:pointycastle/export.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'local_password_store.dart';
+import 'app_update_service.dart';
+import 'event_bus.dart';
+import '../models/password_entry.dart';
 
 /// 安全存储服务
 ///
@@ -24,9 +27,11 @@ class SecureStorageService {
   static const String _dataKey = 'saved_passwords';
   static const String _backupKey = 'saved_passwords_backup';
   static const String _migratedKey = 'secure_storage_migrated';
-  static const String _legacyMacRestoreKey = 'mac_legacy_data_restore_checked';
   static const String _windowsDataDirectoryKey =
       'windows_password_data_directory';
+
+  static const String _desktopDataDirectoryKey =
+      'desktop_password_data_directory';
 
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
 
@@ -50,16 +55,21 @@ class SecureStorageService {
 
     if (_usesDesktopFileStorage) {
       final prefs = await SharedPreferences.getInstance();
-      final configuredDirectory =
-          defaultTargetPlatform == TargetPlatform.windows
+      final configuredDirectory = prefs.getString(_desktopDataDirectoryKey) ??
+          (defaultTargetPlatform == TargetPlatform.windows
               ? prefs.getString(_windowsDataDirectoryKey)
-              : null;
+              : null);
       _localPasswordStore = LocalPasswordStore(
         directory: Directory(configuredDirectory ?? _desktopDataDirectory),
       );
       await _localPasswordStore!.directory.create(recursive: true);
       if (defaultTargetPlatform == TargetPlatform.macOS) {
-        await _restoreLegacyMacDataIfNeeded(_localPasswordStore!);
+        // Native startup migration has already selected and verified the
+        // preference domain. Never read an older sandbox over these settings.
+        await _restoreLegacyPasswordFile(_localPasswordStore!, {
+          for (final key in [_dataKey, _backupKey])
+            if (prefs.get(key) != null) key: prefs.get(key)!,
+        });
       }
       return;
     }
@@ -177,7 +187,8 @@ class SecureStorageService {
   }
 
   /// 保存密码数据（自动加密）
-  Future<void> savePasswords(List<String> passwordsJson) async {
+  Future<void> savePasswords(List<String> passwordsJson,
+      {List<String>? expectedPasswords}) async {
     final prefs = await SharedPreferences.getInstance();
 
     if (kIsWeb) {
@@ -188,7 +199,8 @@ class SecureStorageService {
       return;
     }
     if (_usesDesktopFileStorage) {
-      await _requireLocalPasswordStore().writePasswords(passwordsJson);
+      await _requireLocalPasswordStore()
+          .writePasswords(passwordsJson, expectedPasswords: expectedPasswords);
       await prefs.setString(
         'last_backup_time',
         DateTime.now().toIso8601String(),
@@ -331,30 +343,59 @@ class SecureStorageService {
     return '系统安全存储';
   }
 
-  Future<String> changeWindowsPasswordDataRoot(String selectedRoot) async {
-    if (kIsWeb || defaultTargetPlatform != TargetPlatform.windows) {
-      throw const PasswordStoreException('仅 Windows 支持更改密码存储位置');
-    }
+  Future<String> changePasswordDataRoot(String selectedRoot) =>
+      AppUpdateService.instance
+          .protect(() => _changePasswordDataRoot(selectedRoot));
 
-    final currentStore = _requireLocalPasswordStore();
-    final targetDirectory =
-        LocalPasswordStore.resolveWindowsSelectedDataDirectory(
-      selectedRoot,
-    );
+  Future<String> _changePasswordDataRoot(String selectedRoot) async {
+    if (!_usesDesktopFileStorage) {
+      throw const PasswordStoreException('当前平台不支持更改密码存储位置');
+    }
+    final root = selectedRoot.trim();
+    if (root.isEmpty) throw const PasswordStoreException('请选择有效的数据存储目录');
+    final targetDirectory = defaultTargetPlatform == TargetPlatform.windows
+        ? LocalPasswordStore.resolveWindowsSelectedDataDirectory(root)
+        : '${root.replaceAll(RegExp(r'/+$'), '')}/PasswordManager';
     final targetStore =
         LocalPasswordStore(directory: Directory(targetDirectory));
-    await currentStore.copyPasswordsTo(targetStore);
+    await _requireLocalPasswordStore().copyPasswordsTo(targetStore);
+    return _activatePasswordStore(targetStore);
+  }
 
+  // 保留旧入口供已有 Windows 调用方使用。
+  Future<String> changeWindowsPasswordDataRoot(String selectedRoot) =>
+      changePasswordDataRoot(selectedRoot);
+
+  Future<String> useExistingPasswordDirectory(String selectedDirectory) =>
+      AppUpdateService.instance
+          .protect(() => _useExistingPasswordDirectory(selectedDirectory));
+
+  Future<String> _useExistingPasswordDirectory(String selectedDirectory) async {
+    if (!_usesDesktopFileStorage) {
+      throw const PasswordStoreException('当前平台不支持选择密码库');
+    }
+    final target = LocalPasswordStore(directory: Directory(selectedDirectory));
+    if (!await target.passwordFile.exists()) {
+      throw const PasswordStoreException(
+          '所选目录没有 passwords.json，请等待云端下载完成后选择密码库目录');
+    }
+    // 接入已有库时严格校验主文件，不从可能过期的备份覆盖它。
+    await target.validatePasswordFile();
+    for (final entry in await target.readPasswords()) {
+      PasswordEntry.fromJson(jsonDecode(entry) as Map<String, dynamic>);
+    }
+    return _activatePasswordStore(target);
+  }
+
+  Future<String> _activatePasswordStore(LocalPasswordStore target) async {
     final prefs = await SharedPreferences.getInstance();
-    final saved = await prefs.setString(
-      _windowsDataDirectoryKey,
-      targetDirectory,
-    );
-    if (!saved) {
+    if (!await prefs.setString(
+        _desktopDataDirectoryKey, target.directory.path)) {
       throw const PasswordStoreException('无法保存新的密码存储位置');
     }
-    _localPasswordStore = targetStore;
-    return targetDirectory;
+    _localPasswordStore = target;
+    EventBus.instance.emitPasswordDataChanged();
+    return target.directory.path;
   }
 
   Future<void> openPasswordDataLocation() async {
@@ -366,7 +407,10 @@ class SecureStorageService {
 
   Future<int> countPasswords() async => (await loadPasswords()).length;
 
-  Future<void> clearPasswords() async {
+  Future<void> clearPasswords() =>
+      AppUpdateService.instance.protect(() => _clearPasswords());
+
+  Future<void> _clearPasswords() async {
     if (_usesDesktopFileStorage) {
       await _requireLocalPasswordStore().clearPasswords();
     }
@@ -387,33 +431,26 @@ class SecureStorageService {
     await _restoreLegacyMacData(store, reader);
   }
 
-  Future<void> _restoreLegacyMacDataIfNeeded(LocalPasswordStore store) async {
-    final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool(_legacyMacRestoreKey) ?? false) return;
-
-    final home = Platform.environment['HOME'];
-    if (home == null || home.isEmpty) return;
-    final oldPreferences = File(
-      '$home/Library/Containers/com.jojo.passwordmanager/'
-      'Data/Library/Preferences/com.jojo.passwordmanager.plist',
-    );
-    if (!await oldPreferences.exists()) {
-      await prefs.setBool(_legacyMacRestoreKey, true);
-      return;
-    }
-
-    await _restoreLegacyMacData(
-      store,
-      MacLegacyPreferencesReader(preferencesFile: oldPreferences),
-    );
-    await prefs.setBool(_legacyMacRestoreKey, true);
-  }
-
   Future<void> _restoreLegacyMacData(
     LocalPasswordStore store,
     LegacyPreferencesReader reader,
   ) async {
     final values = await reader.readSupportedPreferences();
+    await _restoreLegacyPasswordFile(store, values);
+
+    final prefs = await SharedPreferences.getInstance();
+    for (final entry in values.entries) {
+      if (entry.key == _dataKey ||
+          entry.key == _backupKey ||
+          prefs.containsKey(entry.key)) continue;
+      await _setPreference(prefs, entry.key, entry.value);
+    }
+  }
+
+  Future<void> _restoreLegacyPasswordFile(
+    LocalPasswordStore store,
+    Map<String, Object> values,
+  ) async {
     final passwords = _legacyPasswordList(values);
     if (!await store.passwordFile.exists() && passwords != null) {
       await store.writePasswords(passwords);
@@ -421,12 +458,6 @@ class SecureStorageService {
       if (!listEquals(verified, passwords)) {
         throw const PasswordStoreException('旧版密码数据恢复校验失败');
       }
-    }
-
-    final prefs = await SharedPreferences.getInstance();
-    for (final entry in values.entries) {
-      if (entry.key == _dataKey || entry.key == _backupKey) continue;
-      await _setPreference(prefs, entry.key, entry.value);
     }
   }
 

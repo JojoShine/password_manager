@@ -27,6 +27,8 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_macos_podfile_setup
 
 target 'Runner' do
+  # Exact upstream podspec avoids resolving unrelated Sparkle versions.
+  pod 'Sparkle', :podspec => 'vendor/Sparkle.podspec.json'
   use_frameworks!
   use_modular_headers!
 

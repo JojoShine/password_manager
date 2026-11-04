@@ -1,9 +1,21 @@
 # 📋 更新日志 (Changelog)
 
-本文档记录了密码管理器项目的所有重要变更。
+本文档记录了 Lockora 项目的所有重要变更。
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 项目遵循 [语义化版本](https://semver.org/lang/zh-CN/) 规范。
+
+## [3.1.0] - 2026-11-04
+
+### 新增 (Added)
+- macOS 和 Windows 原生应用内升级，支持检查版本、更新说明、签名验证和用户确认安装。
+- 保留旧版主密码、界面设置和密码库位置，设置迁移失败时停止启动并允许重试。
+
+### 变更 (Changed)
+- 桌面应用更名为 Lockora，应用标识为 `me.tbtparent.lockora`。
+- 浏览器扩展更名为 Lockora 密码管理器并升级至 3.1.0。
+- Windows 使用按用户安装程序，发布产物与更新订阅通过版本化 OSS 目录分发。
+- 3.0.0 用户需手动安装本版本一次；原密码目录和自定义标题继续保留。
 
 ## [未发布] - Unreleased
 

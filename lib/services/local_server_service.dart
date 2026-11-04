@@ -608,40 +608,39 @@ class PasswordService {
   static void Function()? onPasswordDataChanged;
 
   /// 从安全存储加载所有密码
-  static Future<List<PasswordEntry>> _loadPasswordsFromPreferences() async {
+  static Future<List<PasswordEntry>> _loadPasswordsFromPreferences(
+      {List<String>? snapshot}) async {
     try {
       // 使用 SecureStorageService 加载加密数据
-      final passwordsJson = await SecureStorageService.instance.loadPasswords();
+      final passwordsJson =
+          snapshot ?? await SecureStorageService.instance.loadPasswords();
 
-      final passwords = passwordsJson
-          .map((jsonString) {
-            try {
-              final json = jsonDecode(jsonString) as Map<String, dynamic>;
-              return PasswordEntry.fromJson(json);
-            } catch (e) {
-              return null;
-            }
-          })
-          .where((p) => p != null)
-          .cast<PasswordEntry>()
-          .toList();
+      final passwords = passwordsJson.map((jsonString) {
+        try {
+          final json = jsonDecode(jsonString) as Map<String, dynamic>;
+          return PasswordEntry.fromJson(json);
+        } catch (e) {
+          throw const FormatException('密码记录格式无效，请检查密码库文件');
+        }
+      }).toList();
 
       return passwords;
     } catch (e) {
-      return [];
+      rethrow;
     }
   }
 
   /// 保存密码到安全存储
-  static Future<void> _savePasswordsToPreferences(
-      List<PasswordEntry> passwords) async {
+  static Future<void> _savePasswordsToPreferences(List<PasswordEntry> passwords,
+      {required List<String> expectedPasswords}) async {
     try {
       final passwordsJson = passwords.map((password) {
         return jsonEncode(password.toJson());
       }).toList();
 
       // 使用 SecureStorageService 加密保存
-      await SecureStorageService.instance.savePasswords(passwordsJson);
+      await SecureStorageService.instance
+          .savePasswords(passwordsJson, expectedPasswords: expectedPasswords);
     } catch (e) {
       rethrow;
     }
@@ -675,7 +674,7 @@ class PasswordService {
       return filteredPasswords;
     } catch (e) {
       // debugPrint('搜索密码失败: $e');
-      return [];
+      rethrow;
     }
   }
 
@@ -684,7 +683,9 @@ class PasswordService {
     // debugPrint('保存密码: ${entry.title}');
 
     try {
-      final allPasswords = await _loadPasswordsFromPreferences();
+      final expected = await SecureStorageService.instance.loadPasswords();
+      final allPasswords =
+          await _loadPasswordsFromPreferences(snapshot: expected);
 
       // 生成新的ID
       int maxId = 0;
@@ -704,7 +705,8 @@ class PasswordService {
 
       // 添加到列表并保存
       allPasswords.add(newEntry);
-      await _savePasswordsToPreferences(allPasswords);
+      await _savePasswordsToPreferences(allPasswords,
+          expectedPasswords: expected);
 
       // debugPrint('密码保存成功，ID: $newId');
 
@@ -730,7 +732,9 @@ class PasswordService {
     // debugPrint('更新密码 ID: $id');
 
     try {
-      final allPasswords = await _loadPasswordsFromPreferences();
+      final expected = await SecureStorageService.instance.loadPasswords();
+      final allPasswords =
+          await _loadPasswordsFromPreferences(snapshot: expected);
 
       // 找到要更新的密码
       final index = allPasswords.indexWhere((p) => p.id == id);
@@ -746,7 +750,8 @@ class PasswordService {
       );
 
       allPasswords[index] = updatedEntry;
-      await _savePasswordsToPreferences(allPasswords);
+      await _savePasswordsToPreferences(allPasswords,
+          expectedPasswords: expected);
 
       // debugPrint('密码更新成功');
       return updatedEntry;
@@ -761,14 +766,17 @@ class PasswordService {
     // debugPrint('删除密码 ID: $id');
 
     try {
-      final allPasswords = await _loadPasswordsFromPreferences();
+      final expected = await SecureStorageService.instance.loadPasswords();
+      final allPasswords =
+          await _loadPasswordsFromPreferences(snapshot: expected);
 
       // 删除密码
       final initialLength = allPasswords.length;
       allPasswords.removeWhere((p) => p.id == id);
 
       if (allPasswords.length < initialLength) {
-        await _savePasswordsToPreferences(allPasswords);
+        await _savePasswordsToPreferences(allPasswords,
+            expectedPasswords: expected);
         // debugPrint('密码删除成功');
       } else {
         throw Exception('密码不存在或删除失败');
@@ -876,7 +884,7 @@ class PasswordService {
     } catch (e, stackTrace) {
       // debugPrint('Flutter: ❌ 获取域名密码失败: $e');
       // debugPrint('Flutter: 错误堆栈: $stackTrace');
-      return [];
+      rethrow;
     }
   }
 

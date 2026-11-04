@@ -4,8 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'app_update_service.dart';
+
 class SettingsService extends ChangeNotifier {
-  static const String defaultAppTitle = '密码管理工具';
+  static const String defaultAppTitle = 'Lockora';
   static const String _legacyDefaultAppTitle = '甜宝塔的密码管理工具';
 
   static final SettingsService _instance = SettingsService._internal();
@@ -48,7 +50,7 @@ class SettingsService extends ChangeNotifier {
     }
 
     final savedTitle = _prefs!.getString('app_title');
-    if (savedTitle == _legacyDefaultAppTitle) {
+    if (savedTitle == _legacyDefaultAppTitle || savedTitle == '密码管理工具') {
       _appTitle = defaultAppTitle;
       await _prefs!.setString('app_title', defaultAppTitle);
     } else {
@@ -72,7 +74,10 @@ class SettingsService extends ChangeNotifier {
   }
 
   /// 设置应用标题
-  Future<void> setAppTitle(String title) async {
+  Future<void> setAppTitle(String title) =>
+      AppUpdateService.instance.protect(() => _setAppTitle(title));
+
+  Future<void> _setAppTitle(String title) async {
     if (_prefs == null) return;
 
     _appTitle = title;
@@ -81,7 +86,10 @@ class SettingsService extends ChangeNotifier {
   }
 
   /// 设置自定义logo
-  Future<void> setCustomLogo(String filePath) async {
+  Future<void> setCustomLogo(String filePath) =>
+      AppUpdateService.instance.protect(() => _setCustomLogo(filePath));
+
+  Future<void> _setCustomLogo(String filePath) async {
     if (_prefs == null) return;
 
     try {
@@ -111,7 +119,10 @@ class SettingsService extends ChangeNotifier {
   }
 
   /// 设置自定义背景图片
-  Future<void> setCustomBackground(String filePath) async {
+  Future<void> setCustomBackground(String filePath) =>
+      AppUpdateService.instance.protect(() => _setCustomBackground(filePath));
+
+  Future<void> _setCustomBackground(String filePath) async {
     if (_prefs == null) return;
 
     try {
@@ -141,7 +152,10 @@ class SettingsService extends ChangeNotifier {
   }
 
   /// 重置logo为默认
-  Future<void> resetLogo() async {
+  Future<void> resetLogo() =>
+      AppUpdateService.instance.protect(() => _resetLogo());
+
+  Future<void> _resetLogo() async {
     if (_prefs == null) return;
 
     // 删除自定义logo文件
@@ -162,7 +176,10 @@ class SettingsService extends ChangeNotifier {
   }
 
   /// 重置背景为默认
-  Future<void> resetBackground() async {
+  Future<void> resetBackground() =>
+      AppUpdateService.instance.protect(() => _resetBackground());
+
+  Future<void> _resetBackground() async {
     if (_prefs == null) return;
 
     // 删除自定义背景文件
@@ -183,7 +200,10 @@ class SettingsService extends ChangeNotifier {
   }
 
   /// 设置锁定超时时间（分钟）
-  Future<void> setLockTimeout(int minutes) async {
+  Future<void> setLockTimeout(int minutes) =>
+      AppUpdateService.instance.protect(() => _setLockTimeout(minutes));
+
+  Future<void> _setLockTimeout(int minutes) async {
     if (minutes < 1 || minutes > 1440) {
       throw ArgumentError('超时时间必须在1-1440分钟之间');
     }
