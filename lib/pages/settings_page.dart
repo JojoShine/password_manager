@@ -9,6 +9,7 @@ import '../services/event_bus.dart';
 import '../services/secure_storage_service.dart';
 import '../services/settings_service.dart';
 import '../theme/internal_ui_theme.dart';
+import '../widgets/app_update_section.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -593,6 +594,8 @@ class _SettingsPageState extends State<SettingsPage> {
 
                 const SizedBox(height: 16),
 
+                const AppUpdateSection(),
+                const SizedBox(height: 24),
                 _buildDataAndApplicationSection(),
               ],
             ),
@@ -607,8 +610,6 @@ class _SettingsPageState extends State<SettingsPage> {
         (defaultTargetPlatform == TargetPlatform.macOS ||
             defaultTargetPlatform == TargetPlatform.windows ||
             defaultTargetPlatform == TargetPlatform.linux);
-    final isWindows =
-        !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
 
     return _buildSectionCard(
       title: '数据与应用',
@@ -644,15 +645,30 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
           ],
-          if (isWindows) ...[
+          if (isDesktop) ...[
             const SizedBox(height: 10),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: _changeWindowsDataDirectory,
+                onPressed: _changeDataDirectory,
                 icon: const Icon(Icons.drive_file_move_outline),
                 label: const Text('更改密码存储位置'),
               ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _useExistingPasswordDirectory,
+                icon: const Icon(Icons.folder_shared_outlined),
+                label: const Text('使用已有密码库'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              '可选择 iCloud Drive 等同步目录。第二台设备请选择“使用已有密码库”。'
+              '文件为明文，请妥善管理目录权限；云盘同步有延迟，请避免多设备同时编辑。',
+              style: TextStyle(fontSize: 12, height: 1.5),
             ),
           ],
           const SizedBox(height: 20),
@@ -701,7 +717,7 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  Future<void> _changeWindowsDataDirectory() async {
+  Future<void> _changeDataDirectory() async {
     try {
       final selectedRoot = await FilePicker.platform.getDirectoryPath(
         dialogTitle: '选择密码数据存放位置',
@@ -710,7 +726,7 @@ class _SettingsPageState extends State<SettingsPage> {
       if (selectedRoot == null || selectedRoot.trim().isEmpty) return;
 
       final location = await SecureStorageService.instance
-          .changeWindowsPasswordDataRoot(selectedRoot);
+          .changePasswordDataRoot(selectedRoot);
       if (!mounted) return;
       setState(() {
         _dataLocationFuture = Future.value(location);
@@ -718,6 +734,39 @@ class _SettingsPageState extends State<SettingsPage> {
       _showMessage('密码数据已迁移到新位置');
     } catch (error) {
       _showMessage('更改密码存储位置失败：$error');
+    }
+  }
+
+  Future<void> _useExistingPasswordDirectory() async {
+    try {
+      final directory = await FilePicker.platform.getDirectoryPath(
+        dialogTitle: '选择包含 passwords.json 的密码库目录',
+        lockParentWindow: true,
+      );
+      if (directory == null || !mounted) return;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('切换到已有密码库？'),
+          content: const Text('将显示所选目录中的密码。当前密码库保留在原位置，不会合并或覆盖。'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('取消')),
+            TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('切换')),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+      final location = await SecureStorageService.instance
+          .useExistingPasswordDirectory(directory);
+      if (!mounted) return;
+      setState(() => _dataLocationFuture = Future.value(location));
+      _showMessage('已切换密码库');
+    } catch (error) {
+      _showMessage('切换密码库失败：$error');
     }
   }
 
@@ -866,18 +915,18 @@ class _SettingsPageState extends State<SettingsPage> {
     switch (defaultTargetPlatform) {
       case TargetPlatform.macOS:
         return '1. 如需彻底清理，先使用“一键重置密码数据”。\n'
-            '2. 退出 PasswordManager。\n'
-            '3. 在访达中将 PasswordManager.app 移到废纸篓。\n'
+            '2. 退出 Lockora。\n'
+            '3. 在访达中将 Lockora.app 移到废纸篓。\n'
             '4. 如需移除其他设置，可删除上方数据目录。';
       case TargetPlatform.windows:
         return '1. 如需彻底清理，先使用“一键重置密码数据”。\n'
-            '2. 退出 PasswordManager。\n'
+            '2. 退出 Lockora。\n'
             '3. 打开“设置 > 应用 > 已安装的应用”。\n'
-            '4. 找到 PasswordManager 并选择“卸载”。\n'
+            '4. 找到 Lockora 并选择“卸载”。\n'
             '5. 如需移除其他设置，可删除上方数据目录。';
       case TargetPlatform.linux:
         return '1. 如需彻底清理，先使用“一键重置密码数据”。\n'
-            '2. 退出 PasswordManager。\n'
+            '2. 退出 Lockora。\n'
             '3. 删除 AppImage，或通过所用软件包管理器卸载。\n'
             '4. 如需移除其他设置，可删除上方数据目录。';
       default:

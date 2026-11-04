@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" shape-rendering="crispEdges">
+  <title>密码管理器：像素盾牌与钥匙孔</title>
+  <path fill="#1a1916" d="M0 0h32v32H0z"/>
+  <path fill="#f1e9d8" d="M6 5h20v15h-2v3h-3v3h-3v2h-4v-2h-3v-3H8v-3H6z"/>
+  <path fill="#1a1916" d="M8 7h16v11h-2v3h-3v3h-2v2h-2v-2h-2v-3h-3v-3H8z"/>
+  <path fill="#22b8c8" d="M14 10h4v1h2v4h-2v2h1v4h-6v-4h1v-2h-2v-4h2z"/>
+  <path fill="#eda936" d="M24 5h2v4h-2z"/>
+</svg>

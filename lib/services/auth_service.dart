@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_settings.dart';
 import 'settings_service.dart';
+import 'app_update_service.dart';
 
 /// 认证服务类
 class AuthService extends ChangeNotifier {
@@ -142,7 +143,10 @@ class AuthService extends ChangeNotifier {
   }
 
   /// 保存应用设置
-  Future<void> _saveSettings(AppSettings settings) async {
+  Future<void> _saveSettings(AppSettings settings) =>
+      AppUpdateService.instance.protect(() => _persistSettings(settings));
+
+  Future<void> _persistSettings(AppSettings settings) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final settingsJson = json.encode(settings.toMap());

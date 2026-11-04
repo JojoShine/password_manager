@@ -113,7 +113,7 @@ void main() {
     final policy = tester
         .widgetList<SelectableText>(find.byType(SelectableText))
         .map((widget) => widget.data ?? '')
-        .firstWhere((text) => text.startsWith('密码管理器 - 隐私政策'));
+        .firstWhere((text) => text.startsWith('Lockora - 隐私政策'));
     expect(policy, isNot(contains('✅')));
     expect(policy, isNot(contains('❌')));
   });
@@ -129,7 +129,7 @@ void main() {
     final policy = tester
         .widgetList<SelectableText>(find.byType(SelectableText))
         .map((widget) => widget.data ?? '')
-        .firstWhere((text) => text.startsWith('密码管理器 - 隐私政策'));
+        .firstWhere((text) => text.startsWith('Lockora - 隐私政策'));
     expect(policy.length, lessThan(1200));
   });
 
@@ -137,8 +137,8 @@ void main() {
       (tester) async {
     PackageInfo.setMockInitialValues(
       appName: '密码管理器',
-      packageName: 'com.example.password_manager',
-      version: '3.0.0',
+      packageName: 'me.tbtparent.lockora',
+      version: '3.1.0',
       buildNumber: '1',
       buildSignature: '',
     );
@@ -149,16 +149,16 @@ void main() {
 
     await tester.pumpWidget(const MaterialApp(home: HomePage()));
     await tester.pump();
-    await tester.tap(find.text('v3.0.0'));
+    await tester.tap(find.text('v3.1.0'));
     await tester.pumpAndSettle();
 
     expect(find.byType(PixelDialogHeader), findsOneWidget);
     expect(find.byType(Table), findsOneWidget);
   });
 
-  test('package version is consistently 3.0.0', () {
+  test('package version is consistently 3.1.0', () {
     final pubspec = File('pubspec.yaml').readAsStringSync();
-    expect(pubspec, contains('version: 3.0.0+'));
+    expect(pubspec, contains('version: 3.1.0+'));
   });
 
   testWidgets('theme toggle uses a square solid pixel frame', (tester) async {

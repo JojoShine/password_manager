@@ -298,10 +298,10 @@ class _PrivacyPolicyDialogState extends State<PrivacyPolicyDialog> {
   }
 
   String _getPrivacyPolicyContent() {
-    return '''密码管理器 - 隐私政策
+    return '''Lockora - 隐私政策
 
 最后更新：2026年8月30日
-版本：3.0.0
+版本：3.1.0
 
 一、基本说明
 

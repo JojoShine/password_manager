@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/category.dart';
 import '../models/password_entry.dart';
 import '../services/auth_service.dart';
+import '../services/app_update_service.dart';
 import '../services/event_bus.dart';
 import '../services/import_export_service.dart';
 import '../services/local_server_service.dart';
@@ -35,7 +36,7 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   final AuthService _authService = AuthService.instance;
   List<PasswordEntry> _allPasswords = []; // 所有密码的缓存
   final TextEditingController _searchController = TextEditingController();
@@ -43,6 +44,9 @@ class _HomePageState extends State<HomePage> {
   String _selectedCategory = '全部'; // 当前选中的分类
   String _searchText = '';
   bool _isLoading = false;
+  List<String>? _loadedPasswordsJson;
+  Timer? _externalRefreshTimer;
+  bool _checkingExternalChanges = false;
 
   // 事件总线订阅
   late StreamSubscription<AppEvent> _eventSubscription;
@@ -75,6 +79,9 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _externalRefreshTimer = Timer.periodic(
+        const Duration(seconds: 5), (_) => _refreshExternalChanges());
     _searchController.addListener(() {
       setState(() {
         _searchText = _searchController.text;
@@ -108,10 +115,12 @@ class _HomePageState extends State<HomePage> {
 
     try {
       await _loadPasswordsFromPreferences();
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
       });
@@ -131,21 +140,19 @@ class _HomePageState extends State<HomePage> {
       // 使用 SecureStorageService 加载加密数据
       final passwordsJson = await SecureStorageService.instance.loadPasswords();
 
-      final passwords = passwordsJson
-          .map((jsonString) {
-            try {
-              final json = jsonDecode(jsonString) as Map<String, dynamic>;
-              return PasswordEntry.fromJson(json);
-            } catch (e) {
-              return null;
-            }
-          })
-          .where((p) => p != null)
-          .cast<PasswordEntry>()
-          .toList();
+      final passwords = passwordsJson.map((jsonString) {
+        try {
+          final json = jsonDecode(jsonString) as Map<String, dynamic>;
+          return PasswordEntry.fromJson(json);
+        } catch (e) {
+          throw const FormatException('密码记录格式无效，请检查密码库文件');
+        }
+      }).toList();
 
+      if (!mounted) return;
       setState(() {
         _allPasswords = passwords;
+        _loadedPasswordsJson = List.of(passwordsJson);
       });
 
       // 显示最后备份时间
@@ -164,23 +171,47 @@ class _HomePageState extends State<HomePage> {
         );
       }
     } catch (e) {
-      setState(() {
-        _allPasswords = [];
-      });
+      rethrow;
     }
   }
 
   /// 保存密码到安全存储（自动加密）
-  Future<void> _savePasswordsToPreferences() async {
+  Future<void> _savePasswordsToPreferences(
+      {List<String>? expectedPasswords}) async {
+    final passwordsJson =
+        _allPasswords.map((password) => jsonEncode(password.toJson())).toList();
     try {
-      final passwordsJson = _allPasswords.map((password) {
-        return jsonEncode(password.toJson());
-      }).toList();
-
-      // 使用 SecureStorageService 加密保存
-      await SecureStorageService.instance.savePasswords(passwordsJson);
+      await SecureStorageService.instance.savePasswords(passwordsJson,
+          expectedPasswords: expectedPasswords ?? _loadedPasswordsJson);
+      _loadedPasswordsJson = List.of(passwordsJson);
     } catch (e) {
+      await _loadPasswords();
       rethrow;
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refreshExternalChanges();
+  }
+
+  Future<void> _refreshExternalChanges() async {
+    if (_checkingExternalChanges ||
+        _isLoading ||
+        !mounted ||
+        !_authService.isSessionUnlocked ||
+        _loadedPasswordsJson == null ||
+        ModalRoute.of(context)?.isCurrent != true) return;
+    _checkingExternalChanges = true;
+    try {
+      final current = await SecureStorageService.instance.loadPasswords();
+      if (mounted && jsonEncode(current) != jsonEncode(_loadedPasswordsJson)) {
+        await _loadPasswords();
+      }
+    } catch (_) {
+      // 云盘暂时不可用时保留当前显示；保存仍会检查冲突。
+    } finally {
+      _checkingExternalChanges = false;
     }
   }
 
@@ -197,6 +228,8 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _externalRefreshTimer?.cancel();
     _searchController.dispose();
     _eventSubscription.cancel(); // 取消事件监听
     super.dispose();
@@ -392,10 +425,10 @@ class _HomePageState extends State<HomePage> {
       };
     } catch (e) {
       return {
-        'appName': '密码管理器',
-        'version': '3.0.0',
-        'buildNumber': '1',
-        'packageName': 'com.example.password_manager',
+        'appName': 'Lockora',
+        'version': '未知',
+        'buildNumber': '未知',
+        'packageName': 'me.tbtparent.lockora',
       };
     }
   }
@@ -404,10 +437,10 @@ class _HomePageState extends State<HomePage> {
   Widget _buildVersionInfoTable(Map<String, String> appInfo) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final rows = <(String, String)>[
-      ('应用名称', appInfo['appName'] ?? '密码管理器'),
-      ('版本号', appInfo['version'] ?? '3.0.0'),
-      ('构建号', appInfo['buildNumber'] ?? '1'),
-      ('包名', appInfo['packageName'] ?? 'com.example.password_manager'),
+      ('应用名称', appInfo['appName'] ?? 'Lockora'),
+      ('版本号', appInfo['version'] ?? '未知'),
+      ('构建号', appInfo['buildNumber'] ?? '未知'),
+      ('包名', appInfo['packageName'] ?? 'me.tbtparent.lockora'),
     ];
 
     return Table(
@@ -570,7 +603,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   /// 导出密码
-  Future<void> _exportPasswords() async {
+  Future<void> _exportPasswords() =>
+      AppUpdateService.instance.protect(_exportPasswordsData);
+
+  Future<void> _exportPasswordsData() async {
     try {
       // 显示导出选项对话框
       final exportOptions = await showExportOptionsDialog(context);
@@ -637,7 +673,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   /// 导出为CSV
-  Future<void> _exportToCSV() async {
+  Future<void> _exportToCSV() =>
+      AppUpdateService.instance.protect(_exportToCSVData);
+
+  Future<void> _exportToCSVData() async {
     try {
       final filePath =
           await ImportExportService.instance.exportToCSV(_allPasswords);
@@ -675,7 +714,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   /// 导入密码
-  Future<void> _importPasswords() async {
+  Future<void> _importPasswords() =>
+      AppUpdateService.instance.protect(_importPasswordsData);
+
+  Future<void> _importPasswordsData() async {
     try {
       // 首次尝试导入（选择文件）
       var result = await ImportExportService.instance.importPasswords();
@@ -882,7 +924,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   /// 从CSV文件导入密码
-  Future<void> _importFromCSV() async {
+  Future<void> _importFromCSV() =>
+      AppUpdateService.instance.protect(_importFromCSVData);
+
+  Future<void> _importFromCSVData() async {
     try {
       final result = await ImportExportService.instance.importFromCSV();
 
@@ -1070,6 +1115,7 @@ class _HomePageState extends State<HomePage> {
   /// 显示密码编辑弹窗
   Future<void> _showEditPasswordDialog(
       PasswordEntry password, int index) async {
+    final expectedPasswords = _loadedPasswordsJson;
     final result = await showDialog<PasswordEntry>(
       context: context,
       builder: (context) => PasswordAddDialog(existingEntry: password),
@@ -1085,7 +1131,7 @@ class _HomePageState extends State<HomePage> {
             _allPasswords[originalIndex] = result;
           }
         });
-        await _savePasswordsToPreferences();
+        await _savePasswordsToPreferences(expectedPasswords: expectedPasswords);
 
         // 显示成功消息
         if (mounted) {
@@ -1111,6 +1157,7 @@ class _HomePageState extends State<HomePage> {
   /// 显示删除确认弹窗
   Future<void> _showDeleteConfirmDialog(
       PasswordEntry password, int index) async {
+    final expectedPasswords = _loadedPasswordsJson;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) {
@@ -1308,7 +1355,7 @@ class _HomePageState extends State<HomePage> {
         setState(() {
           _allPasswords.removeWhere((p) => p.id == password.id);
         });
-        await _savePasswordsToPreferences();
+        await _savePasswordsToPreferences(expectedPasswords: expectedPasswords);
 
         // 显示成功消息
         if (mounted) {
@@ -1444,14 +1491,19 @@ class _HomePageState extends State<HomePage> {
                               .onSecondaryContainer,
                         ),
                         const SizedBox(width: 4),
-                        Text(
-                          'v3.0.0',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSecondaryContainer,
-                            fontWeight: FontWeight.w500,
+                        FutureBuilder<Map<String, String>>(
+                          future: _getVersionAppInfo(),
+                          builder: (context, snapshot) => Text(
+                            snapshot.hasData
+                                ? 'v${snapshot.data!["version"]}'
+                                : '版本信息',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSecondaryContainer,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
                       ],
@@ -2701,18 +2753,16 @@ class _PasswordViewDialogState extends State<_PasswordViewDialog> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _buildVersionInfoRow(
-                              '应用名称', appInfo['appName'] ?? '密码管理器'),
+                              '应用名称', appInfo['appName'] ?? 'Lockora'),
                           const SizedBox(height: 16),
                           _buildVersionInfoRow(
-                              '版本号', appInfo['version'] ?? '3.0.0'),
+                              '版本号', appInfo['version'] ?? '未知'),
                           const SizedBox(height: 16),
                           _buildVersionInfoRow(
-                              '构建号', appInfo['buildNumber'] ?? '1'),
+                              '构建号', appInfo['buildNumber'] ?? '未知'),
                           const SizedBox(height: 16),
-                          _buildVersionInfoRow(
-                              '包名',
-                              appInfo['packageName'] ??
-                                  'com.example.password_manager'),
+                          _buildVersionInfoRow('包名',
+                              appInfo['packageName'] ?? 'me.tbtparent.lockora'),
                           const SizedBox(height: 24),
                           Container(
                             width: double.infinity,
@@ -2833,10 +2883,10 @@ class _PasswordViewDialogState extends State<_PasswordViewDialog> {
       };
     } catch (e) {
       return {
-        'appName': '密码管理器',
-        'version': '3.0.0',
-        'buildNumber': '1',
-        'packageName': 'com.example.password_manager',
+        'appName': 'Lockora',
+        'version': '未知',
+        'buildNumber': '未知',
+        'packageName': 'me.tbtparent.lockora',
       };
     }
   }

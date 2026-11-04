@@ -8,6 +8,7 @@ project(runner LANGUAGES CXX)
 # Any new source files that you add to the application should be added here.
 add_executable(${BINARY_NAME} WIN32
   "flutter_window.cpp"
+  "lockora_updater.cpp"
   "main.cpp"
   "utils.cpp"
   "win32_window.cpp"
@@ -38,3 +39,33 @@ target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
 
 # Run the Flutter tool portions of the build. This must not be removed.
 add_dependencies(${BINARY_NAME} flutter_assemble)
+
+target_compile_options(${BINARY_NAME} PRIVATE /utf-8)
+
+# Official WinSparkle release; fail closed if the downloaded archive changes.
+include(FetchContent)
+FetchContent_Declare(winsparkle
+  URL "https://github.com/vslavik/winsparkle/releases/download/v0.9.4/WinSparkle-0.9.4.zip"
+  URL_HASH SHA256=6037df37fc263bd1650a1c4949681a9d40ffe991d01f35892a406cb5d103c976
+)
+FetchContent_GetProperties(winsparkle)
+if(NOT winsparkle_POPULATED)
+  FetchContent_Populate(winsparkle)
+endif()
+set(WINSPARKLE_ROOT "${winsparkle_SOURCE_DIR}")
+if(EXISTS "${WINSPARKLE_ROOT}/WinSparkle-0.9.4/include")
+  set(WINSPARKLE_ROOT "${WINSPARKLE_ROOT}/WinSparkle-0.9.4")
+endif()
+if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8 OR FLUTTER_TARGET_PLATFORM STREQUAL "windows-arm64")
+  message(FATAL_ERROR "Lockora updates currently support Windows x64 only")
+endif()
+target_include_directories(${BINARY_NAME} PRIVATE "${WINSPARKLE_ROOT}/include")
+target_link_libraries(${BINARY_NAME} PRIVATE "${WINSPARKLE_ROOT}/x64/Release/WinSparkle.lib")
+add_custom_command(TARGET ${BINARY_NAME} POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${WINSPARKLE_ROOT}/x64/Release/WinSparkle.dll" "$<TARGET_FILE_DIR:${BINARY_NAME}>"
+)
+install(FILES "${WINSPARKLE_ROOT}/x64/Release/WinSparkle.dll"
+  DESTINATION "." COMPONENT Runtime)
+install(FILES "${WINSPARKLE_ROOT}/COPYING" "${WINSPARKLE_ROOT}/COPYING.expat"
+  DESTINATION "licenses/WinSparkle" COMPONENT Runtime)

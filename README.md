@@ -1,14 +1,14 @@
-# 密码管理工具
+# Lockora
 
 <div align="center">
 
-<img src="assets/app.png" width="112" alt="密码管理工具图标">
+<img src="assets/app.png" width="112" alt="Lockora 图标">
 
 **一款像素风格、无需账户、数据保存在本机的桌面密码管理器。**
 
-[macOS 下载](https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/PasswordManager-macos.zip) · [Windows 下载](https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/PasswordManager-windows.zip) · [问题反馈](https://github.com/JojoShine/password_manager/issues) · [TBTparent](https://tbtparent.me)
+[macOS 下载](https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/lockora/releases/3.1.0/Lockora-3.1.0-macos.zip) · [Windows 下载](https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/lockora/releases/3.1.0/Lockora-3.1.0-windows-setup.exe) · [问题反馈](https://github.com/JojoShine/password_manager/issues) · [TBTparent](https://tbtparent.me)
 
-![Version](https://img.shields.io/badge/version-3.0.0-26231f)
+![Version](https://img.shields.io/badge/version-3.1.0-26231f)
 ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-2f67c7)
 ![License](https://img.shields.io/badge/license-MIT-d9aa13)
 
@@ -22,25 +22,26 @@
 - 支持 JSON、加密 JSON 和 CSV 的导入、导出与备份。
 - 内置 Chromium 浏览器扩展，支持查询、一键填充和登录成功后提示保存密码。
 - 可查看密码数据文件所在目录，一键清理本地密码记录。
-- Windows 可在设置中更改密码数据存放位置。
+- 桌面端可在设置中迁移密码库或接入已有密码库，支持选择 iCloud Drive 等同步目录。
 - 像素风格浅色与深色界面，窗口尺寸会结合可用屏幕空间进行调整。
 
 ## 下载与安装
 
-当前发布版本为 `3.0.0`，提供 macOS 和 Windows 桌面版。
+当前发布版本为 `3.1.0`，提供 macOS 和 Windows 桌面版。
 
 ### Windows
 
-1. 下载 [PasswordManager-windows.zip](https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/PasswordManager-windows.zip)。
-2. 将压缩包放到用于长期存放程序的磁盘或目录中，不要放在临时下载目录。
-3. 完整解压后运行目录中的 `.exe` 文件；不要只复制可执行文件，应用需要同目录中的其他运行文件。
-4. 如需桌面入口，右键 `.exe`，选择“发送到 → 桌面快捷方式”。
+1. 下载 [Lockora-3.1.0-windows-setup.exe](https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/lockora/releases/3.1.0/Lockora-3.1.0-windows-setup.exe)。
+2. 退出旧版应用，运行安装程序，按提示完成当前用户安装。
+3. 从开始菜单或桌面快捷方式启动 Lockora。安装和卸载不会删除密码库。
 
 ### macOS
 
-1. 下载 [PasswordManager-macos.zip](https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/PasswordManager-macos.zip)。
-2. 解压后，将密码管理工具拖入本机“应用程序”目录。
-3. 从“应用程序”目录启动应用。
+1. 下载 [Lockora-3.1.0-macos.zip](https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/lockora/releases/3.1.0/Lockora-3.1.0-macos.zip)。
+2. 退出旧版应用，解压后将 `Lockora.app` 拖入本机“应用程序”目录。
+3. 从“应用程序”目录启动 Lockora，确认密码库和设置正常后，再移除旧 `PasswordManager.app`。
+
+3.0.0 用户需手动安装一次 Lockora。首次启动会保留旧设置与密码库路径；设置迁移失败时停止启动并提供重试。从 3.1.0 起，可在“设置 → 版本与更新”中检查后续升级。
 
 ## 首次使用
 
@@ -55,11 +56,13 @@
 
 ### 安装
 
-1. 进入应用，点击顶部的浏览器扩展按钮并下载扩展压缩包。
-2. 建议将压缩包及解压后的扩展目录与应用程序放在一起长期管理，避免误删。
+1. 进入应用的“浏览器扩展”页面，点击“一键准备扩展”；应用会把配套扩展解压到固定的版本目录，无需联网下载。
+2. 选择“打开 Chrome 扩展页”或“打开 Edge 扩展页”，复制页面显示的扩展目录。也可使用“立即下载”手动保存压缩包。
 3. 打开浏览器扩展管理页：Chrome 使用 `chrome://extensions/`，Edge 使用 `edge://extensions/`。
 4. 开启“开发者模式”，点击“加载已解压的扩展程序”，选择扩展目录。
-5. 将扩展固定到浏览器工具栏，方便随时使用。
+5. 将扩展固定到浏览器工具栏，方便随时使用。更新后加载新版本目录，并移除旧版扩展。
+
+浏览器要求用户确认安装，普通桌面应用无法静默安装本地扩展。
 
 ### 使用
 
@@ -71,14 +74,18 @@
 
 ## 数据存放与备份
 
-密码记录只保存在当前设备，不提供账户注册或云同步。
+应用不提供账户注册或自建云同步服务。默认将密码记录保存在当前设备；选择 iCloud Drive 等云盘目录后，由系统云盘服务同步文件。
 
 默认数据目录：
 
 - macOS：`~/Library/Application Support/PasswordManager`
 - Windows：`%APPDATA%\PasswordManager`
 
-Windows 用户可在“设置 → 数据与应用”中选择新的存放位置。应用会先复制并校验已有数据；为避免覆盖其他密码库，目标应为空目录。
+桌面用户可在“设置 → 数据与应用 → 更改密码存储位置”中选择新的存放位置，包括 iCloud Drive。应用会创建 `PasswordManager` 子目录，复制并校验已有数据，保留原密码库；目标中存在不同数据时拒绝覆盖。
+
+第二台设备等待文件下载完成后，选择“使用已有密码库”，选中包含 `passwords.json` 的 `PasswordManager` 目录。此操作切换当前密码库，不合并或覆盖两边的数据；主密码和界面设置仍由各设备独立管理。
+
+应用回到前台时和每隔 5 秒检查文件变化；编辑或删除时以操作开始时的数据版本检查冲突，发现已同步的新数据会拒绝覆盖并提示重新加载。云盘同步有延迟，这不等同于多设备实时协作或自动合并，请避免多台设备同时编辑；云盘产生的冲突副本需自行处理。
 
 应用会维护 `passwords.json` 和本地备份文件。桌面数据文件由用户自行保管，主密码用于应用访问控制，并不等同于磁盘加密。建议开启系统磁盘加密，并使用应用的“加密导出”功能保存外部备份。明文 JSON 与 CSV 导出可被直接读取，请勿存放在公开或不可信位置。
 

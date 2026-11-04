@@ -13,8 +13,16 @@ void main() {
     await SettingsService.instance.init();
 
     final prefs = await SharedPreferences.getInstance();
-    expect(SettingsService.instance.appTitle, '密码管理工具');
-    expect(prefs.getString('app_title'), '密码管理工具');
+    expect(SettingsService.instance.appTitle, 'Lockora');
+    expect(prefs.getString('app_title'), 'Lockora');
+  });
+
+  test('recent default title upgrades to Lockora', () async {
+    SharedPreferences.setMockInitialValues({'app_title': '密码管理工具'});
+    await SettingsService.instance.init();
+    expect(SettingsService.instance.appTitle, 'Lockora');
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('app_title'), 'Lockora');
   });
 
   test('a custom app title is preserved', () async {

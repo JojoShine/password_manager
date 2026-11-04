@@ -25,7 +25,7 @@ void main() {
   testWidgets('settings page uses border-led section surfaces', (tester) async {
     await tester.pumpWidget(app(const SettingsPage()));
 
-    expect(find.byType(InternalSurface), findsNWidgets(5));
+    expect(find.byType(InternalSurface), findsNWidgets(6));
     expect(find.byType(Card), findsNothing);
   });
 
@@ -33,7 +33,8 @@ void main() {
       (tester) async {
     await tester.pumpWidget(app(const BrowserExtensionPage()));
 
-    expect(find.byType(InternalSurface), findsNWidgets(3));
+    expect(find.byType(InternalSurface), findsNWidgets(4));
+    expect(find.text('一键准备扩展'), findsOneWidget);
   });
 
   testWidgets('extension download confirmation dismisses automatically',

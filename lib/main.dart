@@ -1,9 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'services/app_update_service.dart';
 import 'package:password_manager/pages/home_page.dart';
 import 'package:password_manager/pages/login_page.dart';
 import 'package:password_manager/services/auth_service.dart';
+import 'package:password_manager/services/legacy_settings_migration.dart';
 import 'package:password_manager/services/local_server_service.dart';
 import 'package:password_manager/services/secure_storage_service.dart';
 import 'package:password_manager/services/settings_service.dart';
@@ -68,6 +73,17 @@ void main() async {
     });
   }
 
+  try {
+    await LegacySettingsMigration.migrate();
+  } catch (_) {
+    // Do not initialize preferences, authentication, or a library on failure.
+    runApp(MaterialApp(
+      title: 'Lockora',
+      home: SettingsMigrationErrorPage(onRetry: main),
+    ));
+    return;
+  }
+
   // 初始化Web存储服务（所有平台）
   // print('初始化密码存储服务...');
   await WebStorageService.instance.initialize();
@@ -114,6 +130,32 @@ void main() async {
   runApp(MyApp(startupError: startupError));
 }
 
+class SettingsMigrationErrorPage extends StatelessWidget {
+  final VoidCallback onRetry;
+
+  const SettingsMigrationErrorPage({super.key, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('旧版设置迁移未完成'),
+                const SizedBox(height: 16),
+                const Text('为保护已有密码和设置，应用已停止启动。请确认旧版设置文件可读取、磁盘可写后重试。',
+                    textAlign: TextAlign.center),
+                const SizedBox(height: 16),
+                FilledButton(onPressed: onRetry, child: const Text('重试')),
+              ],
+            ),
+          ),
+        ),
+      );
+}
+
 class MyApp extends StatefulWidget {
   final String? startupError;
 
@@ -124,9 +166,33 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  late final UpdateRouteObserver _updateRoutes =
+      UpdateRouteObserver(AppUpdateService.instance);
+
+  Future<void> _initializeUpdates() async {
+    if (kIsWeb || widget.startupError != null) return;
+    final service = AppUpdateService.instance;
+    await service.initialize(
+      config: AppUpdateConfig.forPlatform(defaultTargetPlatform),
+      preferences: await SharedPreferences.getInstance(),
+      prepareInstall: () async {
+        await AuthService.instance.lockApp();
+        await LocalServerService.instance.stopServer();
+        return true;
+      },
+      resumeAfterInstallFailure: () async {
+        await LocalServerService.instance.startServer();
+      },
+    );
+    if (service.automaticChecks)
+      await service.checkForUpdates(background: true);
+  }
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => unawaited(_initializeUpdates()));
 
     // 添加应用生命周期监听
     WidgetsBinding.instance.addObserver(this);
@@ -160,7 +226,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   /// 确保服务器正在运行
   Future<void> _ensureServerRunning() async {
-    if (widget.startupError != null) return;
+    if (widget.startupError != null ||
+        AppUpdateService.instance.isPreparingInstall) return;
 
     try {
       if (!LocalServerService.instance.isRunning) {
@@ -202,7 +269,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Password Manager',
+      title: 'Lockora',
+      navigatorObservers: [_updateRoutes],
       theme: ThemeService.instance.themeData,
       home: widget.startupError == null
           ? const AuthWrapper()

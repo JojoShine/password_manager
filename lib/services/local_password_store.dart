@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'app_update_service.dart';
+
 typedef ProcessRunner = Future<ProcessResult> Function(
   String executable,
   List<String> arguments,
@@ -73,6 +75,9 @@ class LocalPasswordStore {
 
   LocalPasswordStore({required this.directory});
 
+  List<String>? _lastReadPasswords;
+  Future<void> _pendingWrite = Future.value();
+
   File get passwordFile =>
       File('${directory.path}${Platform.pathSeparator}passwords.json');
   File get backupFile =>
@@ -121,6 +126,12 @@ class LocalPasswordStore {
   }
 
   Future<List<String>> readPasswords() async {
+    final passwords = await _readCurrentPasswords();
+    _lastReadPasswords = List.of(passwords);
+    return passwords;
+  }
+
+  Future<List<String>> _readCurrentPasswords() async {
     if (await passwordFile.exists()) {
       try {
         return await _readFile(passwordFile);
@@ -135,7 +146,25 @@ class LocalPasswordStore {
     return [];
   }
 
-  Future<void> writePasswords(List<String> passwordsJson) async {
+  Future<void> writePasswords(List<String> passwordsJson,
+      {List<String>? expectedPasswords}) {
+    final expected = expectedPasswords ?? _lastReadPasswords;
+    final snapshot = List<String>.of(passwordsJson);
+    return AppUpdateService.instance.protect(() {
+      final write = _pendingWrite.then((_) async {
+        if (expected != null &&
+            !_samePasswords(expected, await _readCurrentPasswords())) {
+          throw const PasswordStoreException('密码库已被其他设备或操作更新，请重新加载后再保存');
+        }
+        await _writePasswords(snapshot);
+        _lastReadPasswords = snapshot;
+      });
+      _pendingWrite = write.then((_) {}, onError: (Object _) {});
+      return write;
+    });
+  }
+
+  Future<void> _writePasswords(List<String> passwordsJson) async {
     await directory.create(recursive: true);
     final document = _createDocument(passwordsJson);
     final encoded = const JsonEncoder.withIndent('  ').convert(document);
@@ -152,7 +181,7 @@ class LocalPasswordStore {
       } catch (_) {
         // A corrupt primary must never replace a valid backup.
       }
-      await passwordFile.delete();
+      if (Platform.isWindows) await passwordFile.delete();
     }
 
     await temporaryFile.rename(passwordFile.path);
@@ -161,13 +190,17 @@ class LocalPasswordStore {
     }
   }
 
+  Future<void> validatePasswordFile() async {
+    _lastReadPasswords = await _readFile(passwordFile);
+  }
+
   Future<int> countPasswords() async => (await readPasswords()).length;
 
-  Future<void> clearPasswords() async {
-    for (final file in [passwordFile, backupFile, temporaryFile]) {
-      if (await file.exists()) await file.delete();
-    }
-  }
+  Future<void> clearPasswords() => AppUpdateService.instance.protect(() async {
+        for (final file in [passwordFile, backupFile, temporaryFile]) {
+          if (await file.exists()) await file.delete();
+        }
+      });
 
   Future<void> copyPasswordsTo(LocalPasswordStore target) async {
     if (directory.absolute.path == target.directory.absolute.path) return;

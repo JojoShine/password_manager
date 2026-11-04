@@ -23,7 +23,7 @@ void main() {
     expect(find.text('密码数据存放位置'), findsOneWidget);
     expect(find.text('一键重置密码数据'), findsOneWidget);
     expect(find.text('应用卸载流程'), findsOneWidget);
-    expect(find.byType(InternalSurface), findsNWidgets(5));
+    expect(find.byType(InternalSurface), findsNWidgets(6));
   });
 
   testWidgets('uninstall guidance uses the shared pixel dialog',
@@ -57,6 +57,23 @@ void main() {
       await tester.pump();
 
       expect(find.text('更改密码存储位置'), findsOneWidget);
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+  testWidgets(
+      'macOS users can migrate or open an existing iCloud password library',
+      (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    try {
+      tester.view.physicalSize = const Size(1000, 1800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(app());
+      await tester.pump();
+      expect(find.text('更改密码存储位置'), findsOneWidget);
+      expect(find.text('使用已有密码库'), findsOneWidget);
     } finally {
       debugDefaultTargetPlatformOverride = null;
     }

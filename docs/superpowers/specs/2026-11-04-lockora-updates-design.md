@@ -1,7 +1,7 @@
 # Lockora 品牌更名与桌面应用内升级设计
 
 日期：2026-11-04（Asia/Shanghai）  
-阶段：方案方向已确认，本文待用户审阅；尚未开始本轮产品代码实施。
+阶段：用户已明确授权实施、GitHub 推送与 OSS 发布；代码已实施，发布验证进行中。
 
 ## 1. 已确认的目标
 
@@ -108,7 +108,7 @@ macOS 使用完整 `.app` 的 ZIP 作为更新载体，保留符号链接与执�
 采用现有 OSS 域名，通过 HTTPS 提供以下资源：
 
 ```text
-Download/Lockora/
+Download/lockora/
   updates/stable/macos.xml
   updates/stable/windows.xml
   releases/3.1.0/

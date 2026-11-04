@@ -1,0 +1,9 @@
+{
+  "baseURL": "https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/lockora",
+  "macosFeedURL": "https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/lockora/updates/stable/macos.xml",
+  "windowsFeedURL": "https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/lockora/updates/stable/windows.xml",
+  "macosPublicKey": "bUsDQU7PpFz6d8NkiXie0sNBA0Ffwf9OW+g5QqRB9Pk=",
+  "windowsPublicKey": "N1z5lUtrhbphNhNu8sdpYKFjQhgYKjfX6l1r0Ko0odo=",
+  "minimumMacOS": "10.15",
+  "minimumWindows": "10.0"
+}
