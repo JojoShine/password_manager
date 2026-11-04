@@ -142,6 +142,10 @@ flutter_launcher_icons:
   ios: true
   remove_alpha_ios: true  # 移除iOS图标的透明通道，符合App Store要求
   image_path: "assets/app.png"
+  web:
+    generate: true
+    background_color: "#1a1916"
+    theme_color: "#22b8c8"
   # Windows和macOS图标
   windows:
     generate: true
