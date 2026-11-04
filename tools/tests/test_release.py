@@ -32,6 +32,25 @@ class Store:
 
 
 class ReleaseTests(unittest.TestCase):
+    def test_configure_reads_chinese_sources_on_windows_locale(self):
+        original_open = Path.open
+        def windows_open(path, mode='r', buffering=-1, encoding=None, errors=None, newline=None):
+            if 'b' not in mode and encoding in (None, 'locale'):
+                encoding = 'cp1252'
+            return original_open(path, mode, buffering, encoding, errors, newline)
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            (root / 'release').mkdir()
+            (root / 'macos/Flutter').mkdir(parents=True)
+            (root / 'pubspec.yaml').write_bytes('version: 3.1.0+5\n# 密码管理器\n'.encode('utf-8'))
+            (root / 'CHANGELOG.md').write_bytes('## [3.1.0]\n支持安全升级\n'.encode('utf-8'))
+            (root / 'release/config.json').write_bytes((release.ROOT / 'release/config.json').read_bytes())
+            with patch.object(release, 'ROOT', root), patch.object(Path, 'open', windows_open), patch.object(sys, 'argv', ['release.py', 'configure']):
+                release.main()
+                self.assertIn('支持安全升级'.encode('utf-8'), release.notes(release.version()))
+            defines = json.loads((root / 'build/updates.json').read_bytes())
+            self.assertIn('LOCKORA_WINDOWS_PUBLIC_KEY', defines)
+
     def test_versions_require_both_components_increase(self):
         release.validate_version('3.1.0+5', 'v3.1.0', '3.0.0+4')
         for current, tag, previous in [('3.1.0+5', 'v3.0.0', None),

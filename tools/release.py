@@ -36,7 +36,7 @@ def validate_version(current, tag=None, previous=None):
 
 
 def version():
-    match = re.search(r'^version:\s*(\S+)\s*$', (ROOT / 'pubspec.yaml').read_text(), re.M)
+    match = re.search(r'^version:\s*(\S+)\s*$', (ROOT / 'pubspec.yaml').read_text(encoding='utf-8'), re.M)
     if not match:
         raise ValueError('pubspec has no version')
     validate_version(match[1])
@@ -54,7 +54,7 @@ def decode(value, size):
 
 
 def config():
-    data = json.loads((ROOT / 'release/config.json').read_text())
+    data = json.loads((ROOT / 'release/config.json').read_text(encoding='utf-8'))
     for field in ('baseURL', 'macosFeedURL', 'windowsFeedURL'):
         url = urlparse(data[field])
         if url.scheme != 'https' or not url.netloc or url.query or url.fragment:
@@ -123,7 +123,7 @@ def validate_zip(path):
 
 def notes(current):
     public = current.split('+')[0]
-    text = (ROOT / 'CHANGELOG.md').read_text()
+    text = (ROOT / 'CHANGELOG.md').read_text(encoding='utf-8')
     match = re.search(r'^## \[' + re.escape(public) + r'\][^\n]*\n(.*?)(?=^## |\Z)', text, re.M | re.S)
     if not match or not match[1].strip():
         raise ValueError('CHANGELOG lacks this version release notes')
@@ -187,7 +187,7 @@ def candidate(out, cfg, current):
     for platform, suffix in [('macos', 'macos.zip'), ('windows', 'windows-setup.exe')]:
         name = f'Lockora-{public}-{suffix}'
         data = (out / name).read_bytes()
-        signature = (out / (name + '.sig')).read_text().strip()
+        signature = (out / (name + '.sig')).read_text(encoding='utf-8').strip()
         verify_signature(data, signature, cfg[platform + 'PublicKey'])
         if platform == 'macos':
             validate_zip(out / name)
@@ -286,8 +286,8 @@ def main():
         defines = {f'LOCKORA_{p.upper()}_{suffix}': cfg[p + field]
                    for p in ('macos', 'windows') for suffix, field in [('PUBLIC_KEY', 'PublicKey'), ('FEED_URL', 'FeedURL')]}
         (ROOT / 'build').mkdir(exist_ok=True)
-        (ROOT / 'build/updates.json').write_text(json.dumps(defines, indent=2) + '\n')
-        (ROOT / 'macos/Flutter/ReleaseUpdates.xcconfig').write_text('LOCKORA_MACOS_PUBLIC_KEY = ' + cfg['macosPublicKey'] + '\n')
+        (ROOT / 'build/updates.json').write_text(json.dumps(defines, indent=2) + '\n', encoding='utf-8')
+        (ROOT / 'macos/Flutter/ReleaseUpdates.xcconfig').write_text('LOCKORA_MACOS_PUBLIC_KEY = ' + cfg['macosPublicKey'] + '\n', encoding='utf-8')
     elif args.command == 'sign':
         from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
         from cryptography.hazmat.primitives import serialization
@@ -299,7 +299,7 @@ def main():
         payload = args.package.read_bytes()
         signature = base64.b64encode(key.sign(payload)).decode()
         verify_signature(payload, signature, cfg[args.platform + 'PublicKey'])
-        Path(str(args.package) + '.sig').write_text(signature + '\n')
+        Path(str(args.package) + '.sig').write_text(signature + '\n', encoding='utf-8')
     else:
         files, feeds = candidate(args.directory, cfg, current)
         if args.command == 'generate':
