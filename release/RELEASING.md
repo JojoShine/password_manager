@@ -1,13 +1,13 @@
 # Lockora release procedure
 
-The desktop version comes from `pubspec.yaml`; the matching changelog section is required. Both semantic version and numeric build must increase relative to both existing stable feeds. Tags use `v3.1.0`. A tag or default manual run produces a signed candidate only. Dispatch with `publish=true` explicitly promotes a successful candidate. Both platforms and Flutter/release-tool tests must pass first.
+The desktop version comes from `pubspec.yaml`; the matching changelog section is required. Both semantic version and numeric build must increase relative to both existing stable feeds. Lockora tags use `lockora-v3.1.0` to preserve historical PasswordManager `v*` tags, whose names did not always match their application versions. A tag or default manual run produces a signed candidate only. Dispatch with `publish=true` explicitly promotes a successful candidate. Both platforms and Flutter/release-tool tests must pass first.
 
 `release/config.json` contains public material only. Provision permanent, independently generated Ed25519 keys before the first candidate. Public keys are base64 raw 32-byte keys. GitHub secrets `LOCKORA_MACOS_PRIVATE_KEY` and `LOCKORA_WINDOWS_PRIVATE_KEY` contain base64 of the 64 bytes `seed || publicKey`. The release tool derives and checks the public half before signing, then verifies the signature over the complete final archive bytes. These raw Ed25519 signatures match Sparkle 2.9.6 and WinSparkle 0.9.4. Never log, commit, upload, or pass private keys as command arguments. Keep offline secure backups; replacing keys in a later client requires an explicit framework-supported rotation plan.
 
 Install Python 3.12+ and `pip install -r tools/requirements-release.txt` in a virtual environment. Commands from repository root:
 
 ```sh
-python tools/release.py validate --tag v3.1.0 --previous 3.0.0+4
+python tools/release.py validate --tag lockora-v3.1.0 --previous 3.0.0+4
 python tools/release.py configure
 flutter build macos --release --dart-define-from-file=build/updates.json
 # On macOS, archive Lockora.app with ditto -c -k --sequesterRsrc --keepParent.
