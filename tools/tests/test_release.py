@@ -147,11 +147,11 @@ class ReleaseTests(unittest.TestCase):
             win.write_bytes(b'MZtest executable')
             info = {'CFBundleIdentifier': 'me.tbtparent.lockora', 'CFBundleVersion': '6',
                     'CFBundleShortVersionString': '3.1.1', 'SUPublicEDKey': public}
-            def make_mac():
+            def make_mac(versioned=False):
                 with zipfile.ZipFile(mac, 'w') as z:
                     z.writestr('Lockora.app/Contents/Info.plist', plistlib.dumps(info))
                     z.writestr('Lockora.app/Contents/MacOS/Lockora', b'executable')
-                    z.writestr('Lockora.app/Contents/Frameworks/App.framework/Resources/flutter_assets/assets/files/password_manager_browser.zip', browser.read_bytes())
+                    z.writestr('Lockora.app/Contents/Frameworks/App.framework/' + ('Versions/A/' if versioned else '') + 'Resources/flutter_assets/assets/files/password_manager_browser.zip', browser.read_bytes())
                 for path in (mac, win):
                     Path(str(path) + '.sig').write_text(base64.b64encode(private.sign(path.read_bytes())).decode())
             source = out / 'assets/files/password_manager_browser.zip'
@@ -162,6 +162,9 @@ class ReleaseTests(unittest.TestCase):
                 files, feeds = release.candidate(out, cfg, '3.1.1+6')
                 self.assertIn('checksums.sha256', files)
                 self.assertEqual(set(feeds), {'macos.xml', 'windows.xml'})
+                make_mac(versioned=True)
+                release.candidate(out, cfg, '3.1.1+6')
+                make_mac()
                 # A candidate must be the exact extension shipped in the source tree.
                 source.write_bytes(b'different shipped extension')
                 with self.assertRaises(ValueError):

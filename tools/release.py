@@ -198,7 +198,15 @@ def candidate(out, cfg, current):
                     info['CFBundleShortVersionString'] != public or
                     info.get('SUPublicEDKey') != cfg['macosPublicKey']):
                     raise ValueError('macOS bundle identity/version/public key mismatch')
-                embedded = z.read('Lockora.app/Contents/Frameworks/App.framework/Resources/flutter_assets/assets/files/password_manager_browser.zip')
+                extension_paths = [
+                    'Lockora.app/Contents/Frameworks/App.framework/' + layout +
+                    'Resources/flutter_assets/assets/files/password_manager_browser.zip'
+                    for layout in ('', 'Versions/A/')
+                ]
+                extension_paths = [path for path in extension_paths if path in z.namelist()]
+                if len(extension_paths) != 1:
+                    raise ValueError('Missing or ambiguous macOS embedded extension')
+                embedded = z.read(extension_paths[0])
                 if embedded != (out / f'Lockora-{public}-browser.zip').read_bytes():
                     raise ValueError('macOS embedded extension differs from release extension')
                 if 'Lockora.app/Contents/MacOS/Lockora' not in z.namelist():
