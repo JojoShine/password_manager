@@ -66,6 +66,6 @@ add_custom_command(TARGET ${BINARY_NAME} POST_BUILD
     "${WINSPARKLE_ROOT}/x64/Release/WinSparkle.dll" "$<TARGET_FILE_DIR:${BINARY_NAME}>"
 )
 install(FILES "${WINSPARKLE_ROOT}/x64/Release/WinSparkle.dll"
-  DESTINATION "." COMPONENT Runtime)
+  DESTINATION "$<TARGET_FILE_DIR:${BINARY_NAME}>" COMPONENT Runtime)
 install(FILES "${WINSPARKLE_ROOT}/COPYING" "${WINSPARKLE_ROOT}/COPYING.expat"
-  DESTINATION "licenses/WinSparkle" COMPONENT Runtime)
+  DESTINATION "$<TARGET_FILE_DIR:${BINARY_NAME}>/licenses/WinSparkle" COMPONENT Runtime)
