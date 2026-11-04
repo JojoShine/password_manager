@@ -1,11 +1,11 @@
 {
-    "name": "password_manager",
-    "short_name": "password_manager",
+    "name": "Lockora",
+    "short_name": "Lockora",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#1a1916",
+    "theme_color": "#22b8c8",
+    "description": "Lockora 本地密码管理器，安全管理您的密码。",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
