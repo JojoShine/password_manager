@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="密码管理工具是一款面向 macOS 与 Windows 的本地密码管理器，支持密码生成、分类检索、浏览器填充与导入导出。">
+  <meta name="description" content="Lockora 是一款面向 macOS 与 Windows 的本地密码管理器，支持密码生成、分类检索、浏览器填充与导入导出。">
   <meta name="theme-color" content="#f5eedc">
-  <title>密码管理工具 | 本地保存，轻松使用</title>
-  <link rel="icon" href="landing-assets/logo.png">
+  <title>Lockora | 本地保存，轻松使用</title>
+  <link rel="icon" href="landing-assets/logo.png?v=lockora">
   <link rel="stylesheet" href="landing.css">
 </head>
 <body>
@@ -14,14 +14,15 @@
 
   <header class="site-header">
     <nav class="nav shell" aria-label="主要导航">
-      <a class="brand" href="#top" aria-label="密码管理工具首页">
-        <img src="landing-assets/logo.png" alt="像素小狗应用图标" width="42" height="42">
-        <span>密码管理工具</span>
+      <a class="brand" href="#top" aria-label="Lockora 首页">
+        <img src="landing-assets/logo.png?v=lockora" alt="Lockora 像素盾牌图标" width="42" height="42">
+        <span>Lockora</span>
       </a>
       <div class="nav-links">
         <a href="#features">产品特点</a>
         <a href="#guide">使用方法</a>
         <a href="#extension">浏览器插件</a>
+        <a href="#updates">版本更新</a>
         <a href="#faq">常见问题</a>
       </div>
       <a class="button button-primary" href="#download">立即下载 <span class="pixel-arrow" aria-hidden="true">↓</span></a>
@@ -34,7 +35,7 @@
         <div class="hero-copy reveal">
           <p class="eyebrow mono">LOCAL PASSWORD MANAGER</p>
           <h1>密码留在本地<br>登录变得简单。</h1>
-          <p>本地加密保存、快速检索，并通过浏览器插件完成填充与保存。</p>
+          <p>本地保存、快速检索，并通过浏览器插件完成填充与保存。</p>
           <div class="hero-actions">
             <a class="button button-primary" href="#download">下载桌面应用 <span class="pixel-arrow" aria-hidden="true">↓</span></a>
             <a class="button button-secondary" href="#guide">查看使用方法 <span class="pixel-arrow" aria-hidden="true">→</span></a>
@@ -53,19 +54,19 @@
           </div>
           <figure class="product-figure">
             <div class="product-window">
-              <img src="landing-assets/app-overview.png" alt="密码管理工具主界面，包含分类、搜索和密码卡片">
+              <img src="landing-assets/app-overview.png?v=lockora-3.1.0" alt="Lockora 3.1.0 主界面，新版盾牌图标与演示密码数据">
               <div class="privacy-mask" aria-hidden="true"><span>演示数据已隐藏</span></div>
             </div>
             <figcaption class="product-caption mono">
               <span>一个界面，集中管理</span>
-              <span>V3.0.0</span>
+              <span>V3.1.0</span>
             </figcaption>
           </figure>
 
           <span class="connection-link" aria-hidden="true"><i></i></span>
           <aside class="extension-preview" aria-label="浏览器插件与桌面应用联动示意">
             <div class="extension-preview-head">
-              <img src="landing-assets/browser-extension.png" alt="浏览器插件图标" width="34" height="34">
+              <img src="landing-assets/browser-extension.png?v=lockora" alt="浏览器插件图标" width="34" height="34">
               <div>
                 <strong>浏览器插件</strong>
                 <span>与桌面应用本地联动</span>
@@ -109,8 +110,8 @@
             <article class="trust-item">
               <span class="pixel-tile" aria-hidden="true">存</span>
               <div>
-                <h3>本地加密保存</h3>
-                <p>密码数据保存在本机，可在设置中查看对应系统的数据目录。</p>
+                <h3>本地文件存储</h3>
+                <p>可在设置中更改密码库目录。3.1.0 的桌面密码库和自动备份为明文 JSON；需要备份时可选择加密 JSON 导出。</p>
               </div>
             </article>
             <article class="trust-item">
@@ -234,23 +235,41 @@
       </div>
     </section>
 
+    <section class="section" id="updates">
+      <div class="shell">
+        <div class="section-head reveal">
+          <p class="section-kicker mono">VERSION NOTES</p>
+          <h2>版本更新</h2>
+          <p>了解当前版本的变化，以及如何从旧版升级。</p>
+        </div>
+        <div class="faq-list reveal">
+          <details open>
+            <summary>3.1.0 · 2026-11-04</summary>
+            <p>应用和浏览器扩展统一更名为 Lockora，更新图标。支持更改密码库目录，可选择 iCloud 等自己的同步目录；改进重复保存提示、扩展连接恢复与底部显示。</p>
+            <p>macOS 和 Windows 新增“设置 → 版本与更新”，可检查版本并由用户确认安装，更新包会验证签名。正在编辑、保存或导入导出时会阻止更新退出。</p>
+            <p>3.0.0 用户需手动安装本版一次，原设置与密码库路径继续保留。3.1.0 尚未启用桌面密码库的默认加密，主密码解锁不等于文件加密。</p>
+            <p><a href="https://github.com/JojoShine/password_manager/releases/tag/lockora-v3.1.0" target="_blank" rel="noopener noreferrer">查看完整发布说明与下载文件 →</a></p>
+          </details>
+        </div>
+      </div>
+    </section>
+
     <section class="section download-section" id="download">
       <div class="download-content shell">
         <div class="reveal">
           <p class="section-kicker download-kicker mono">DOWNLOAD</p>
           <h2>选择你的系统，开始整理密码。</h2>
-          <p>下载并解压安装包后，按照系统提示完成安装。</p>
+          <p>下载适合系统的安装包，按照下方说明完成安装。</p>
         </div>
         <div class="download-options reveal">
-          <!-- 当前链接指向占位压缩包。替换 OSS 同路径文件后，无需修改本页面。 -->
-          <a class="download-card" href="https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/PasswordManager-macos.zip" download>
+          <a class="download-card" href="https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/lockora/releases/3.1.0/Lockora-3.1.0-macos.zip" download>
             <span class="os-icon mono" aria-hidden="true">MAC</span>
             <span><strong>下载 macOS 版</strong><small>ZIP 压缩包</small></span>
             <span class="pixel-arrow" aria-hidden="true">↓</span>
           </a>
-          <a class="download-card" href="https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/PasswordManager-windows.zip" download>
+          <a class="download-card" href="https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/lockora/releases/3.1.0/Lockora-3.1.0-windows-setup.exe" download>
             <span class="os-icon mono" aria-hidden="true">WIN</span>
-            <span><strong>下载 Windows 版</strong><small>ZIP 压缩包</small></span>
+            <span><strong>下载 Windows 版</strong><small>EXE 安装包</small></span>
             <span class="pixel-arrow" aria-hidden="true">↓</span>
           </a>
         </div>
@@ -268,13 +287,13 @@
               <span class="os-icon mono" aria-hidden="true">WIN</span>
               <div>
                 <h3>Windows</h3>
-                <p>先确定程序长期存放的位置，再开始解压。</p>
+                <p>运行安装程序，按提示完成当前用户安装。</p>
               </div>
             </div>
             <ol class="install-step-list">
-              <li>将压缩包放到平时用于存放软件的磁盘或目录。</li>
-              <li>在当前位置解压压缩包，然后打开解压后的文件夹。</li>
-              <li>找到 EXE 程序，右键选择“发送到 → 桌面快捷方式”。</li>
+              <li>下载 Lockora Windows 安装程序。</li>
+              <li>双击 EXE 安装程序，按照提示完成安装。</li>
+              <li>从开始菜单打开 Lockora，并设置或输入主密码。</li>
             </ol>
           </article>
 
@@ -288,8 +307,8 @@
             </div>
             <ol class="install-step-list">
               <li>下载并解压 macOS 压缩包。</li>
-              <li>将密码管理工具拖入本机的“应用程序”目录。</li>
-              <li>进入“应用程序”，打开密码管理工具并设置主密码。</li>
+              <li>将 Lockora 拖入本机的“应用程序”目录。</li>
+              <li>进入“应用程序”，打开 Lockora 并设置或输入主密码。</li>
             </ol>
           </article>
         </div>
@@ -334,7 +353,7 @@
 
   <footer>
     <div class="footer-inner shell">
-      <span>© <span id="year">2026</span> 密码管理工具</span>
+      <span>© <span id="year">2026</span> Lockora</span>
       <span>Powered by <a href="https://tbtparent.me" target="_blank" rel="noopener noreferrer">TBTparent</a></span>
     </div>
   </footer>
