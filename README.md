@@ -6,9 +6,9 @@
 
 **一款像素风格、无需账户、数据保存在本机的桌面密码管理器。**
 
-[macOS 下载](https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/lockora/releases/3.1.0/Lockora-3.1.0-macos.zip) · [Windows 下载](https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/lockora/releases/3.1.0/Lockora-3.1.0-windows-setup.exe) · [问题反馈](https://github.com/JojoShine/password_manager/issues) · [TBTparent](https://tbtparent.me)
+[macOS 下载](https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/lockora/releases/3.1.1/Lockora-3.1.1-macos.zip) · [Windows 下载](https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/lockora/releases/3.1.1/Lockora-3.1.1-windows-setup.exe) · [问题反馈](https://github.com/JojoShine/password_manager/issues) · [TBTparent](https://tbtparent.me)
 
-![Version](https://img.shields.io/badge/version-3.1.0-26231f)
+![Version](https://img.shields.io/badge/version-3.1.1-26231f)
 ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-2f67c7)
 ![License](https://img.shields.io/badge/license-MIT-d9aa13)
 
@@ -16,7 +16,7 @@
 
 ## 主要功能
 
-- 使用主密码进入密码库，支持手动锁定和离开后台超时自动锁定。
+- 桌面密码库默认使用 AES-256-GCM 加密；同一个密码库在各设备使用同一个主密码解锁，支持手动锁定和离开后台超时自动锁定。
 - 添加、查看、编辑、删除和搜索密码，按社交、邮箱、购物、银行、工作等分类筛选。
 - 按长度和字符类型生成随机密码，可直接保存为密码条目。
 - 支持 JSON、加密 JSON 和 CSV 的导入、导出与备份。
@@ -27,17 +27,17 @@
 
 ## 下载与安装
 
-当前发布版本为 `3.1.0`，提供 macOS 和 Windows 桌面版。
+当前发布版本为 `3.1.1`，提供 macOS 和 Windows 桌面版。
 
 ### Windows
 
-1. 下载 [Lockora-3.1.0-windows-setup.exe](https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/lockora/releases/3.1.0/Lockora-3.1.0-windows-setup.exe)。
+1. 下载 [Lockora-3.1.1-windows-setup.exe](https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/lockora/releases/3.1.1/Lockora-3.1.1-windows-setup.exe)。
 2. 退出旧版应用，运行安装程序，按提示完成当前用户安装。
 3. 从开始菜单或桌面快捷方式启动 Lockora。安装和卸载不会删除密码库。
 
 ### macOS
 
-1. 下载 [Lockora-3.1.0-macos.zip](https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/lockora/releases/3.1.0/Lockora-3.1.0-macos.zip)。
+1. 下载 [Lockora-3.1.1-macos.zip](https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/lockora/releases/3.1.1/Lockora-3.1.1-macos.zip)。
 2. 退出旧版应用，解压后将 `Lockora.app` 拖入本机“应用程序”目录。
 3. 从“应用程序”目录启动 Lockora，确认密码库和设置正常后，再移除旧 `PasswordManager.app`。
 
@@ -83,13 +83,17 @@
 
 桌面用户可在“设置 → 数据与应用 → 更改密码存储位置”中选择新的存放位置，包括 iCloud Drive。应用会创建 `PasswordManager` 子目录，复制并校验已有数据，保留原密码库；目标中存在不同数据时拒绝覆盖。
 
-第二台设备等待文件下载完成后，选择“使用已有密码库”，选中包含 `passwords.json` 的 `PasswordManager` 目录。此操作切换当前密码库，不合并或覆盖两边的数据；主密码和界面设置仍由各设备独立管理。
+第二台设备等待文件下载完成后，选择“使用已有密码库”，选中包含 `passwords.json` 的 `PasswordManager` 目录。此操作切换当前密码库，不合并或覆盖两边的数据。加密密码库在所有设备上使用同一个主密码，界面设置仍由各设备独立管理。
 
 应用回到前台时和每隔 5 秒检查文件变化；编辑或删除时以操作开始时的数据版本检查冲突，发现已同步的新数据会拒绝覆盖并提示重新加载。云盘同步有延迟，这不等同于多设备实时协作或自动合并，请避免多台设备同时编辑；云盘产生的冲突副本需自行处理。
 
-应用会维护 `passwords.json` 和本地备份文件。桌面数据文件由用户自行保管，主密码用于应用访问控制，并不等同于磁盘加密。建议开启系统磁盘加密，并使用应用的“加密导出”功能保存外部备份。明文 JSON 与 CSV 导出可被直接读取，请勿存放在公开或不可信位置。
+从 3.1.1 起，桌面密码库的主文件、自动备份和写入临时文件均采用 AES-256-GCM 加密。密钥由主密码通过带随机盐的 PBKDF2-HMAC-SHA256（600,000 次）派生，解锁时在后台计算；每次写入使用新的随机 nonce。锁定后不允许继续读写密码库。
 
-“一键重置密码数据”会删除密码记录及其本地备份，但会保留主密码和界面设置。执行前请确认已经完成所需备份。
+升级前请先让所有同步设备退出旧版并安装 3.1.1，再在首台设备用原主密码成功解锁并迁移。旧版不能读取新格式，不能再写入同一个同步目录。迁移会校验当前库，错误密码或损坏的主文件不会被自动用备份覆盖。
+
+迁移只保护当前目录中的活动文件，不会自动清理旧目录副本、历史导出或云盘历史版本。外部备份仍可选择“加密 JSON”；普通 JSON 与 CSV 导出是明文，需自行保管。加密保护不等同于整个磁盘加密。
+
+“一键重置密码数据”会清空密码记录与备份内容，保留一个可由原主密码解锁的空加密库及界面设置。执行前请确认已经完成所需备份。
 
 ## 自动锁定
 
@@ -140,11 +144,15 @@ assets/
 
 浏览器扩展源码位于同级的 `password_manager_browser` 目录。修改扩展后，需要重新生成并替换应用内的扩展压缩包。
 
+## 产品介绍页
+
+[Lockora 官网](https://tbtparent.me/lockora/) 使用根目录的 `landing.html`、`landing.css`、`landing.js` 和 `landing-assets/`；部署说明见 [deploy/README.md](deploy/README.md)。`web/` 是 Flutter 浏览器应用入口，其源文件不能直接双击运行，本次桌面密码库加密也不覆盖 Web 的浏览器本地存储。
+
 ## 隐私与安全边界
 
 - 应用不会把密码库上传到开发者服务器。
 - 浏览器扩展仅通过 `127.0.0.1` 与本机应用通信。
-- 只有在主动下载扩展或点击外部链接时，应用才会访问对应网络地址。
+- 检查和下载更新会访问配置的 HTTPS 发布服务器；扩展准备、外部链接等功能也可能访问对应网络地址。这些请求不携带主密码或密码库内容。
 - 忘记主密码后无法通过开发者服务恢复；请依靠自己保存的主密码和备份文件。
 
 详细说明见 [隐私政策](PRIVACY_POLICY.md) 和 [安全政策](SECURITY.md)。

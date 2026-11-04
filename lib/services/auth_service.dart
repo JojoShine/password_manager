@@ -7,6 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/app_settings.dart';
 import 'settings_service.dart';
 import 'app_update_service.dart';
+import 'secure_storage_service.dart';
+import 'local_password_store.dart';
 
 /// 认证服务类
 class AuthService extends ChangeNotifier {
@@ -19,6 +21,9 @@ class AuthService extends ChangeNotifier {
   AppSettings? _currentSettings;
   String? _currentMasterPassword; // 临时存储当前会话的主密码
   bool _isSessionUnlocked = false;
+  int _sessionGeneration = 0;
+  static const desktopVaultMarker = 'encrypted-vault-v2';
+  SecureStorageService get _storage => SecureStorageService.instance;
   DateTime? _backgroundedAt;
 
   bool get isSessionUnlocked => _isSessionUnlocked;
@@ -31,6 +36,8 @@ class AuthService extends ChangeNotifier {
 
   /// 初始化认证服务
   Future<void> initialize() async {
+    _sessionGeneration++;
+    _storage.lockDesktopVault();
     _isSessionUnlocked = false;
     _currentMasterPassword = null;
     _backgroundedAt = null;
@@ -150,10 +157,15 @@ class AuthService extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       final settingsJson = json.encode(settings.toMap());
-      await prefs.setString('app_settings', settingsJson);
+      final saved = await prefs.setString('app_settings', settingsJson);
+      if (!saved && _storage.usesDesktopVault)
+        throw StateError('无法保存密码库设置，请检查磁盘后重试');
       _currentSettings = settings;
     } catch (e) {
-      // print('保存设置失败: $e');
+      if (_storage.usesDesktopVault) {
+        await lockApp();
+        rethrow;
+      }
     }
   }
 
@@ -167,18 +179,21 @@ class AuthService extends ChangeNotifier {
   /// 检查是否首次启动
   Future<bool> isFirstLaunch() async {
     final settings = await getCurrentSettings();
+    if (await _storage.hasEncryptedDesktopVault()) return false;
     return settings.isFirstLaunch;
   }
 
   /// 检查是否已设置主密码
   Future<bool> hasMasterPassword() async {
     final settings = await getCurrentSettings();
-    return settings.hasMasterPassword;
+    return await _storage.hasEncryptedDesktopVault() ||
+        settings.hasMasterPassword;
   }
 
   /// 设置主密码（首次设置）
   Future<bool> setMasterPassword(
       String password, String confirmPassword) async {
+    final generation = _sessionGeneration;
     if (password != confirmPassword) {
       throw ArgumentError('密码不一致');
     }
@@ -188,7 +203,20 @@ class AuthService extends ChangeNotifier {
     }
 
     final settings = await getCurrentSettings();
-    final hashedPassword = _hashPassword(password);
+    if (_storage.usesDesktopVault) {
+      if (await _storage.hasEncryptedDesktopVault()) {
+        throw StateError('已有加密密码库，请使用主密码解锁');
+      }
+      if (settings.hasMasterPassword &&
+          settings.masterPasswordHash != desktopVaultMarker) {
+        throw StateError('请先使用原主密码解锁并迁移密码库');
+      }
+      await _storage.unlockDesktopVault(password);
+    }
+    if (generation != _sessionGeneration) return false;
+    final hashedPassword = _storage.usesDesktopVault
+        ? desktopVaultMarker
+        : _hashPassword(password);
 
     final updatedSettings = settings.copyWith(
       masterPasswordHash: hashedPassword,
@@ -197,6 +225,7 @@ class AuthService extends ChangeNotifier {
     );
 
     await _saveSettings(updatedSettings);
+    if (generation != _sessionGeneration) return false;
     _currentMasterPassword = password;
     _setSessionUnlocked(true);
     return true;
@@ -204,6 +233,7 @@ class AuthService extends ChangeNotifier {
 
   /// 验证主密码
   Future<bool> verifyMasterPassword(String password) async {
+    final generation = _sessionGeneration;
     // 检查是否被锁定
     if (isLockedOut()) {
       final remainingTime = getRemainingLockoutTime();
@@ -211,13 +241,34 @@ class AuthService extends ChangeNotifier {
     }
 
     final settings = await getCurrentSettings();
-
-    if (!settings.hasMasterPassword) {
-      return false;
+    if (generation != _sessionGeneration) return false;
+    bool isValid;
+    if (_storage.usesDesktopVault) {
+      try {
+        final encrypted = await _storage.hasEncryptedDesktopVault();
+        if (!encrypted && settings.masterPasswordHash == desktopVaultMarker) {
+          throw const PasswordStoreException('密码库主文件缺失，请保留备份并恢复主文件后重试');
+        }
+        if (!encrypted && !settings.hasMasterPassword) return false;
+        isValid =
+            encrypted || _hashPassword(password) == settings.masterPasswordHash;
+        if (isValid) await _storage.unlockDesktopVault(password);
+      } on PasswordAuthenticationException {
+        isValid = false;
+      } on PasswordStoreException {
+        if (generation != _sessionGeneration) return false;
+        await lockApp();
+        rethrow;
+      } catch (_) {
+        if (generation != _sessionGeneration) return false;
+        await lockApp();
+        throw const PasswordStoreException('无法打开密码库，请检查数据目录后重试');
+      }
+    } else {
+      isValid = settings.hasMasterPassword &&
+          _hashPassword(password) == settings.masterPasswordHash;
     }
-
-    final hashedPassword = _hashPassword(password);
-    final isValid = hashedPassword == settings.masterPasswordHash;
+    if (generation != _sessionGeneration) return false;
 
     if (isValid) {
       // 密码正确，重置失败计数
@@ -227,6 +278,10 @@ class AuthService extends ChangeNotifier {
       final now = DateTime.now();
       final updatedSettings = settings.copyWith(
         lastUnlockTime: now,
+        masterPasswordHash: _storage.usesDesktopVault
+            ? desktopVaultMarker
+            : settings.masterPasswordHash,
+        isFirstLaunch: false,
       );
       await _saveSettings(updatedSettings);
 
@@ -234,6 +289,7 @@ class AuthService extends ChangeNotifier {
       _currentSettings = updatedSettings;
 
       // 临时保存主密码用于当前会话的加密操作
+      if (generation != _sessionGeneration) return false;
       _currentMasterPassword = password;
       _setSessionUnlocked(true);
 
@@ -345,6 +401,8 @@ class AuthService extends ChangeNotifier {
 
   /// 立即锁定应用
   Future<void> lockApp() async {
+    _sessionGeneration++;
+    _storage.lockDesktopVault();
     _currentMasterPassword = null;
     _backgroundedAt = null;
     _setSessionUnlocked(false);
@@ -369,6 +427,7 @@ class AuthService extends ChangeNotifier {
 
   /// 重置应用（清除所有设置，谨慎使用）
   Future<void> resetApp() async {
+    await lockApp();
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('app_settings');
@@ -383,6 +442,7 @@ class AuthService extends ChangeNotifier {
   /// 更改主密码
   Future<bool> changeMasterPassword(
       String oldPassword, String newPassword, String confirmPassword) async {
+    final generation = _sessionGeneration;
     // 验证旧密码
     final isOldPasswordValid = await verifyMasterPassword(oldPassword);
     if (!isOldPasswordValid) {
@@ -404,7 +464,14 @@ class AuthService extends ChangeNotifier {
 
     // 设置新密码
     final settings = await getCurrentSettings();
-    final hashedPassword = _hashPassword(newPassword);
+    if (generation != _sessionGeneration) return false;
+    if (_storage.usesDesktopVault) {
+      await _storage.changeDesktopMasterPassword(oldPassword, newPassword);
+    }
+    if (generation != _sessionGeneration) return false;
+    final hashedPassword = _storage.usesDesktopVault
+        ? desktopVaultMarker
+        : _hashPassword(newPassword);
 
     final updatedSettings = settings.copyWith(
       masterPasswordHash: hashedPassword,
@@ -412,6 +479,7 @@ class AuthService extends ChangeNotifier {
     );
 
     await _saveSettings(updatedSettings);
+    if (generation != _sessionGeneration) return false;
     _currentMasterPassword = newPassword;
     _setSessionUnlocked(true);
     return true;

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../services/auth_service.dart';
+import '../services/secure_storage_service.dart';
 import '../services/settings_service.dart';
 import '../services/theme_service.dart';
 import '../theme/internal_ui_theme.dart';
@@ -603,6 +604,17 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
             ),
             textAlign: TextAlign.center,
           ),
+          if (SecureStorageService.instance.usesDesktopVault) ...[
+            const SizedBox(height: 12),
+            Text(
+              '桌面密码库将在解锁后加密。使用云同步前，请先升级所有设备并停止旧版写入同一目录。所有设备使用相同主密码。',
+              style: TextStyle(
+                  fontSize: 12,
+                  height: 1.5,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ],
       ),
     );
