@@ -1,5 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
+
+import 'vault_crypto.dart';
 
 import 'app_update_service.dart';
 
@@ -69,11 +72,138 @@ class MacLegacyPreferencesReader implements LegacyPreferencesReader {
 enum LocalPasswordPlatform { macOS, windows, linux }
 
 class LocalPasswordStore {
-  static const int formatVersion = 1;
+  static const int formatVersion = 2;
 
   final Directory directory;
 
   LocalPasswordStore({required this.directory});
+
+  Uint8List? _key;
+  Uint8List? _salt;
+  String? _lastDocument;
+  int _generation = 0;
+
+  bool get isUnlocked => _key != null;
+  List<String>? get passwordSnapshot =>
+      _lastReadPasswords == null ? null : List<String>.of(_lastReadPasswords!);
+
+  void lock() {
+    _generation++;
+    _key?.fillRange(0, _key!.length, 0);
+    _key = null;
+    _salt = null;
+    _lastReadPasswords = null;
+    _lastDocument = null;
+  }
+
+  Future<bool> hasEncryptedVault() async {
+    if (!await passwordFile.exists()) return false;
+    try {
+      return (jsonDecode(await passwordFile.readAsString())
+              as Map)['version'] ==
+          2;
+    } catch (_) {
+      // An existing unreadable primary must never be treated as a new vault.
+      return true;
+    }
+  }
+
+  void _ensureUnlocked() {
+    if (_key == null) throw const PasswordStoreException('密码库已锁定，请先解锁');
+  }
+
+  Future<void> unlock(String password, {List<String>? initialPasswords}) {
+    final generation = _generation;
+    return _serialize(() async {
+      Uint8List? key;
+      try {
+        final original = await passwordFile.exists()
+            ? await passwordFile.readAsString()
+            : null;
+        if (original == null &&
+            (await backupFile.exists() || await temporaryFile.exists())) {
+          throw const PasswordStoreException('密码库主文件缺失，请保留备份并手动恢复主文件后重试');
+        }
+        final document = original == null
+            ? null
+            : jsonDecode(original) as Map<String, dynamic>;
+        final encrypted = document?['version'] == 2;
+        final salt = encrypted
+            ? VaultCrypto.salt(document!)
+            : VaultCrypto.randomBytes(32);
+        key = await VaultCrypto.derive(password, salt);
+        final records = encrypted
+            ? VaultCrypto.decrypt(document!, key)
+            : (document == null
+                ? initialPasswords ?? <String>[]
+                : _readLegacy(document));
+        if (generation != _generation)
+          throw const PasswordStoreException('密码库已锁定，请重试');
+        final committed = !encrypted
+            ? await _commit(records, key, salt, original, generation,
+                replaceBackup: true)
+            : original!;
+        final current = await passwordFile.readAsString();
+        if (generation != _generation || current != committed) {
+          throw const PasswordStoreException('密码库已锁定或被其他设备更新，请重新解锁');
+        }
+        _key?.fillRange(0, _key!.length, 0);
+        _key = key;
+        key = null;
+        _salt = salt;
+        _lastReadPasswords = List.of(records);
+        _lastDocument = committed;
+      } on VaultAuthenticationException {
+        throw const PasswordAuthenticationException();
+      } on PasswordStoreException {
+        rethrow;
+      } on FileSystemException {
+        throw const PasswordStoreException('无法读写密码库，请检查数据目录和磁盘后重试');
+      } catch (_) {
+        throw const PasswordStoreException('密码库格式无效或数据损坏，请保留文件并检查后重试');
+      } finally {
+        key?.fillRange(0, key.length, 0);
+      }
+    });
+  }
+
+  Future<void> changeMasterPassword(String oldPassword, String newPassword) =>
+      _serialize(() async {
+        _ensureUnlocked();
+        final generation = _generation;
+        final original = await passwordFile.readAsString();
+        if (original != _lastDocument)
+          throw const PasswordStoreException('密码库已被其他设备或操作更新，请重新加载后再保存');
+        Uint8List? oldKey;
+        Uint8List? newKey;
+        try {
+          final document = jsonDecode(original) as Map<String, dynamic>;
+          oldKey =
+              await VaultCrypto.derive(oldPassword, VaultCrypto.salt(document));
+          final records = VaultCrypto.decrypt(document, oldKey);
+          final salt = VaultCrypto.randomBytes(32);
+          newKey = await VaultCrypto.derive(newPassword, salt);
+          final committed = await _commit(
+              records, newKey, salt, original, generation,
+              replaceBackup: true);
+          _key!.fillRange(0, _key!.length, 0);
+          _key = newKey;
+          newKey = null;
+          _salt = salt;
+          _lastDocument = committed;
+          _lastReadPasswords = List.of(records);
+        } finally {
+          oldKey?.fillRange(0, oldKey.length, 0);
+          newKey?.fillRange(0, newKey.length, 0);
+        }
+      });
+
+  Future<void> _serialize(Future<void> Function() operation) =>
+      AppUpdateService.instance.protect(() {
+        final result = _pendingWrite.then((_) => operation());
+        _pendingWrite = result.then((_) {}, onError: (Object _) {});
+        return result;
+      });
 
   List<String>? _lastReadPasswords;
   Future<void> _pendingWrite = Future.value();
@@ -132,75 +262,100 @@ class LocalPasswordStore {
   }
 
   Future<List<String>> _readCurrentPasswords() async {
-    if (await passwordFile.exists()) {
-      try {
-        return await _readFile(passwordFile);
-      } catch (_) {
-        return _recoverFromBackup();
-      }
-    }
-
-    if (await backupFile.exists()) {
-      return _recoverFromBackup();
-    }
-    return [];
+    _ensureUnlocked();
+    if (!await passwordFile.exists())
+      throw const PasswordStoreException('密码库主文件缺失，请手动恢复');
+    final raw = await passwordFile.readAsString();
+    _ensureUnlocked();
+    final records = _decrypt(raw, _key!);
+    _lastDocument = raw;
+    return records;
   }
 
   Future<void> writePasswords(List<String> passwordsJson,
       {List<String>? expectedPasswords}) {
     final expected = expectedPasswords ?? _lastReadPasswords;
+    final expectedDocument = _lastDocument;
+    final generation = _generation;
     final snapshot = List<String>.of(passwordsJson);
-    return AppUpdateService.instance.protect(() {
-      final write = _pendingWrite.then((_) async {
-        if (expected != null &&
-            !_samePasswords(expected, await _readCurrentPasswords())) {
-          throw const PasswordStoreException('密码库已被其他设备或操作更新，请重新加载后再保存');
-        }
-        await _writePasswords(snapshot);
-        _lastReadPasswords = snapshot;
-      });
-      _pendingWrite = write.then((_) {}, onError: (Object _) {});
-      return write;
+    return _serialize(() async {
+      _ensureUnlocked();
+      final original = await passwordFile.readAsString();
+      _ensureUnlocked();
+      if (original != expectedDocument ||
+          (expected != null &&
+              !_samePasswords(expected, _decrypt(original, _key!)))) {
+        throw const PasswordStoreException('密码库已被其他设备或操作更新，请重新加载后再保存');
+      }
+      final committed =
+          await _commit(snapshot, _key!, _salt!, original, generation);
+      _lastReadPasswords = snapshot;
+      _lastDocument = committed;
     });
   }
 
-  Future<void> _writePasswords(List<String> passwordsJson) async {
-    await directory.create(recursive: true);
-    final document = _createDocument(passwordsJson);
-    final encoded = const JsonEncoder.withIndent('  ').convert(document);
-
-    await temporaryFile.writeAsString(encoded, flush: true);
-    await _readFile(temporaryFile);
-
-    var hasValidBackup = false;
-    if (await passwordFile.exists()) {
-      try {
-        await _readFile(passwordFile);
-        await passwordFile.copy(backupFile.path);
-        hasValidBackup = true;
-      } catch (_) {
-        // A corrupt primary must never replace a valid backup.
-      }
-      if (Platform.isWindows) await passwordFile.delete();
-    }
-
-    await temporaryFile.rename(passwordFile.path);
-    if (!hasValidBackup) {
-      await passwordFile.copy(backupFile.path);
+  List<String> _decrypt(String raw, Uint8List key) {
+    try {
+      return VaultCrypto.decrypt(jsonDecode(raw) as Map<String, dynamic>, key);
+    } catch (_) {
+      throw const PasswordStoreException('主密码不正确、密码库已更新或数据损坏，请重新解锁');
     }
   }
 
+  Future<String> _commit(List<String> records, Uint8List key, Uint8List salt,
+      String? original, int generation,
+      {bool replaceBackup = false}) async {
+    void checkSession() {
+      if (generation != _generation)
+        throw const PasswordStoreException('密码库已锁定，请重试');
+    }
+
+    checkSession();
+    final encoded = VaultCrypto.encrypt(records, key, salt);
+    _decrypt(encoded, key);
+    await directory.create(recursive: true);
+    checkSession();
+    await temporaryFile.writeAsString(encoded, flush: true);
+    _decrypt(await temporaryFile.readAsString(), key);
+    checkSession();
+    final current =
+        await passwordFile.exists() ? await passwordFile.readAsString() : null;
+    if (current != original)
+      throw const PasswordStoreException('密码库已被其他设备或操作更新，请重新加载后再保存');
+    // Migration and password changes must not retain a plaintext/old-key backup.
+    await backupFile.writeAsString(
+        replaceBackup || original == null ? encoded : original,
+        flush: true);
+    checkSession();
+    final latest =
+        await passwordFile.exists() ? await passwordFile.readAsString() : null;
+    if (latest != original)
+      throw const PasswordStoreException('密码库已被其他设备或操作更新，请重新加载后再保存');
+    await temporaryFile.rename(passwordFile.path);
+    checkSession();
+    return encoded;
+  }
+
   Future<void> validatePasswordFile() async {
-    _lastReadPasswords = await _readFile(passwordFile);
+    _lastReadPasswords = await _readCurrentPasswords();
   }
 
   Future<int> countPasswords() async => (await readPasswords()).length;
 
-  Future<void> clearPasswords() => AppUpdateService.instance.protect(() async {
-        for (final file in [passwordFile, backupFile, temporaryFile]) {
-          if (await file.exists()) await file.delete();
-        }
-      });
+  Future<void> clearPasswords() {
+    final generation = _generation;
+    return _serialize(() async {
+      _ensureUnlocked();
+      final original = await passwordFile.readAsString();
+      _ensureUnlocked();
+      if (original != _lastDocument)
+        throw const PasswordStoreException('密码库已被其他设备或操作更新，请重新加载后再保存');
+      final committed = await _commit([], _key!, _salt!, original, generation,
+          replaceBackup: true);
+      _lastReadPasswords = [];
+      _lastDocument = committed;
+    });
+  }
 
   Future<void> copyPasswordsTo(LocalPasswordStore target) async {
     if (directory.absolute.path == target.directory.absolute.path) return;
@@ -251,50 +406,14 @@ class LocalPasswordStore {
     }
   }
 
-  Map<String, dynamic> _createDocument(List<String> passwordsJson) {
-    final passwords = passwordsJson.map((value) {
-      final decoded = jsonDecode(value);
-      if (decoded is! Map<String, dynamic>) {
-        throw const PasswordStoreException('密码记录格式无效');
-      }
-      return decoded;
+  List<String> _readLegacy(Map<String, dynamic> decoded) {
+    if (decoded['version'] != 1 || decoded['passwords'] is! List) {
+      throw const PasswordStoreException('密码数据文件格式不支持');
+    }
+    return (decoded['passwords'] as List).map((entry) {
+      if (entry is! Map) throw const PasswordStoreException('密码记录格式无效');
+      return jsonEncode(Map<String, dynamic>.from(entry));
     }).toList();
-
-    return {
-      'version': formatVersion,
-      'updated_at': DateTime.now().toUtc().toIso8601String(),
-      'passwords': passwords,
-    };
-  }
-
-  Future<List<String>> _readFile(File file) async {
-    try {
-      final decoded = jsonDecode(await file.readAsString());
-      if (decoded is! Map<String, dynamic> ||
-          decoded['version'] != formatVersion ||
-          decoded['passwords'] is! List) {
-        throw const FormatException('unsupported password document');
-      }
-      return (decoded['passwords'] as List).map((entry) {
-        if (entry is! Map) {
-          throw const FormatException('invalid password entry');
-        }
-        return jsonEncode(Map<String, dynamic>.from(entry));
-      }).toList();
-    } catch (error) {
-      throw PasswordStoreException('密码数据文件损坏', cause: error);
-    }
-  }
-
-  Future<List<String>> _recoverFromBackup() async {
-    if (!await backupFile.exists()) {
-      throw const PasswordStoreException('密码数据文件损坏且没有可用备份');
-    }
-    final recovered = await _readFile(backupFile);
-    await directory.create(recursive: true);
-    if (await passwordFile.exists()) await passwordFile.delete();
-    await backupFile.copy(passwordFile.path);
-    return recovered;
   }
 }
 
@@ -306,4 +425,8 @@ class PasswordStoreException implements Exception {
 
   @override
   String toString() => cause == null ? message : '$message：$cause';
+}
+
+class PasswordAuthenticationException extends PasswordStoreException {
+  const PasswordAuthenticationException() : super('主密码不正确或密码库认证失败');
 }

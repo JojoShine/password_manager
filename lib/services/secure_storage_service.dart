@@ -14,9 +14,8 @@ import '../models/password_entry.dart';
 
 /// 安全存储服务
 ///
-/// 使用 AES-256-CBC 加密密码数据后存入 SharedPreferences，
-/// 加密密钥由 flutter_secure_storage 管理（Android Keystore / iOS Keychain）。
-/// macOS 与 Web 使用项目本地存储；其他原生平台安全存储不可用时停止读写。
+/// 桌面密码库使用由主密码派生密钥的 AES-256-GCM 文件。
+/// 移动端保留系统密钥管理的 AES-CBC；Web 保留浏览器本地明文存储。
 class SecureStorageService {
   static final SecureStorageService _instance =
       SecureStorageService._internal();
@@ -41,6 +40,89 @@ class SecureStorageService {
   /// 安全存储是否可用
   bool _secureStorageAvailable = false;
   LocalPasswordStore? _localPasswordStore;
+  String? _desktopSessionPassword;
+  int _desktopGeneration = 0;
+  Future<void> _pendingDesktopOperation = Future.value();
+
+  Future<T> _desktopOperation<T>(Future<T> Function() operation) {
+    final generation = _desktopGeneration;
+    return AppUpdateService.instance.protect(() {
+      final result = _pendingDesktopOperation.then((_) {
+        if (generation != _desktopGeneration)
+          throw const PasswordStoreException('密码库已锁定，请重试');
+        return operation();
+      });
+      _pendingDesktopOperation = result.then((_) {}, onError: (Object _) {});
+      return result;
+    });
+  }
+
+  bool get usesDesktopVault => _usesDesktopFileStorage;
+
+  Future<bool> hasEncryptedDesktopVault() async =>
+      _usesDesktopFileStorage &&
+      await _requireLocalPasswordStore().hasEncryptedVault();
+
+  void lockDesktopVault() {
+    _desktopGeneration++;
+    _desktopSessionPassword = null;
+    _localPasswordStore?.lock();
+  }
+
+  Future<void> unlockDesktopVault(String password) =>
+      _desktopOperation(() => _unlockDesktopVault(password));
+
+  Future<void> _unlockDesktopVault(String password) async {
+    if (!_usesDesktopFileStorage) return;
+    final generation = _desktopGeneration;
+    final prefs = await SharedPreferences.getInstance();
+    final legacy = _legacyPasswordList({
+      for (final key in [_dataKey, _backupKey])
+        if (prefs.get(key) != null) key: prefs.get(key)!,
+    });
+    if (generation != _desktopGeneration)
+      throw const PasswordStoreException('密码库已锁定，请重试');
+    await _requireLocalPasswordStore()
+        .unlock(password, initialPasswords: legacy);
+    if (generation != _desktopGeneration) {
+      _localPasswordStore?.lock();
+      throw const PasswordStoreException('密码库已锁定，请重试');
+    }
+    _desktopSessionPassword = password;
+    // The primary has been authenticated and round-tripped before removing
+    // active legacy copies. Unrelated source domains/history remain untouched.
+    try {
+      if (!await prefs.remove(_dataKey) || !await prefs.remove(_backupKey)) {
+        throw const PasswordStoreException('旧版密码副本清理失败，请检查磁盘后重试');
+      }
+    } catch (_) {
+      lockDesktopVault();
+      throw const PasswordStoreException('旧版密码副本清理失败，请检查磁盘后重试');
+    }
+  }
+
+  Future<void> changeDesktopMasterPassword(
+          String oldPassword, String newPassword) =>
+      _desktopOperation(
+          () => _changeDesktopMasterPassword(oldPassword, newPassword));
+
+  Future<void> _changeDesktopMasterPassword(
+      String oldPassword, String newPassword) async {
+    final generation = _desktopGeneration;
+    await _requireLocalPasswordStore()
+        .changeMasterPassword(oldPassword, newPassword);
+    if (generation != _desktopGeneration)
+      throw const PasswordStoreException('密码库已锁定，请重试');
+    _desktopSessionPassword = newPassword;
+  }
+
+  String _requireDesktopPassword() {
+    final password = _desktopSessionPassword;
+    if (password == null || !_requireLocalPasswordStore().isUnlocked) {
+      throw const PasswordStoreException('密码库已锁定，请先解锁');
+    }
+    return password;
+  }
 
   /// 安全存储是否可用（供外部检查）
   bool get isSecureStorageAvailable => _secureStorageAvailable;
@@ -54,6 +136,7 @@ class SecureStorageService {
     }
 
     if (_usesDesktopFileStorage) {
+      lockDesktopVault();
       final prefs = await SharedPreferences.getInstance();
       final configuredDirectory = prefs.getString(_desktopDataDirectoryKey) ??
           (defaultTargetPlatform == TargetPlatform.windows
@@ -63,14 +146,6 @@ class SecureStorageService {
         directory: Directory(configuredDirectory ?? _desktopDataDirectory),
       );
       await _localPasswordStore!.directory.create(recursive: true);
-      if (defaultTargetPlatform == TargetPlatform.macOS) {
-        // Native startup migration has already selected and verified the
-        // preference domain. Never read an older sandbox over these settings.
-        await _restoreLegacyPasswordFile(_localPasswordStore!, {
-          for (final key in [_dataKey, _backupKey])
-            if (prefs.get(key) != null) key: prefs.get(key)!,
-        });
-      }
       return;
     }
 
@@ -189,22 +264,33 @@ class SecureStorageService {
   /// 保存密码数据（自动加密）
   Future<void> savePasswords(List<String> passwordsJson,
       {List<String>? expectedPasswords}) async {
+    final requestedStore =
+        _usesDesktopFileStorage ? _requireLocalPasswordStore() : null;
+    final snapshot = List<String>.of(passwordsJson);
+    final expected = expectedPasswords == null
+        ? requestedStore?.passwordSnapshot
+        : List<String>.of(expectedPasswords);
+    if (_usesDesktopFileStorage) {
+      // Enter the session gate before any await, including preferences access.
+      await _desktopOperation(() async {
+        final prefs = await SharedPreferences.getInstance();
+        // Resolve the active store only after earlier moves/rotations commit.
+        final activeStore = _requireLocalPasswordStore();
+        if (expected == null && !identical(requestedStore, activeStore)) {
+          throw const PasswordStoreException('密码库位置已更改，请重新加载后再保存');
+        }
+        await activeStore.writePasswords(snapshot, expectedPasswords: expected);
+        await prefs.setString(
+            'last_backup_time', DateTime.now().toIso8601String());
+      });
+      return;
+    }
     final prefs = await SharedPreferences.getInstance();
-
     if (kIsWeb) {
       await prefs.setStringList(_dataKey, passwordsJson);
       await prefs.setStringList(_backupKey, passwordsJson);
       await prefs.setString(
           'last_backup_time', DateTime.now().toIso8601String());
-      return;
-    }
-    if (_usesDesktopFileStorage) {
-      await _requireLocalPasswordStore()
-          .writePasswords(passwordsJson, expectedPasswords: expectedPasswords);
-      await prefs.setString(
-        'last_backup_time',
-        DateTime.now().toIso8601String(),
-      );
       return;
     }
     _ensureSecureStorageAvailable();
@@ -344,8 +430,7 @@ class SecureStorageService {
   }
 
   Future<String> changePasswordDataRoot(String selectedRoot) =>
-      AppUpdateService.instance
-          .protect(() => _changePasswordDataRoot(selectedRoot));
+      _desktopOperation(() => _changePasswordDataRoot(selectedRoot));
 
   Future<String> _changePasswordDataRoot(String selectedRoot) async {
     if (!_usesDesktopFileStorage) {
@@ -358,8 +443,24 @@ class SecureStorageService {
         : '${root.replaceAll(RegExp(r'/+$'), '')}/PasswordManager';
     final targetStore =
         LocalPasswordStore(directory: Directory(targetDirectory));
-    await _requireLocalPasswordStore().copyPasswordsTo(targetStore);
-    return _activatePasswordStore(targetStore);
+    final generation = _desktopGeneration;
+    final password = _requireDesktopPassword();
+    final source = _requireLocalPasswordStore();
+    final records = await source.readPasswords();
+    if (await targetStore.passwordFile.exists() &&
+        !await targetStore.hasEncryptedVault()) {
+      throw const PasswordStoreException('目标目录包含旧版密码库，请先在原设备升级并加密后再接入');
+    }
+    try {
+      await targetStore.unlock(password, initialPasswords: records);
+      if (!listEquals(await targetStore.readPasswords(), records)) {
+        throw const PasswordStoreException('目标目录已存在其他密码数据，请选择空目录');
+      }
+      return await _activatePasswordStore(targetStore, generation);
+    } catch (_) {
+      targetStore.lock();
+      rethrow;
+    }
   }
 
   // 保留旧入口供已有 Windows 调用方使用。
@@ -367,32 +468,56 @@ class SecureStorageService {
       changePasswordDataRoot(selectedRoot);
 
   Future<String> useExistingPasswordDirectory(String selectedDirectory) =>
-      AppUpdateService.instance
-          .protect(() => _useExistingPasswordDirectory(selectedDirectory));
+      _desktopOperation(() => _useExistingPasswordDirectory(selectedDirectory));
 
   Future<String> _useExistingPasswordDirectory(String selectedDirectory) async {
     if (!_usesDesktopFileStorage) {
       throw const PasswordStoreException('当前平台不支持选择密码库');
     }
+    final generation = _desktopGeneration;
     final target = LocalPasswordStore(directory: Directory(selectedDirectory));
     if (!await target.passwordFile.exists()) {
       throw const PasswordStoreException(
           '所选目录没有 passwords.json，请等待云端下载完成后选择密码库目录');
     }
     // 接入已有库时严格校验主文件，不从可能过期的备份覆盖它。
-    await target.validatePasswordFile();
-    for (final entry in await target.readPasswords()) {
-      PasswordEntry.fromJson(jsonDecode(entry) as Map<String, dynamic>);
+    if (!await target.hasEncryptedVault()) {
+      throw const PasswordStoreException('所选目录包含旧版密码库，请先在原设备升级并加密后再接入');
     }
-    return _activatePasswordStore(target);
+    try {
+      await target.unlock(_requireDesktopPassword());
+    } catch (_) {
+      target.lock();
+      throw const PasswordStoreException('无法解锁所选密码库，请确认使用相同的主密码且文件完整');
+    }
+    try {
+      await target.validatePasswordFile();
+      for (final entry in await target.readPasswords()) {
+        PasswordEntry.fromJson(jsonDecode(entry) as Map<String, dynamic>);
+      }
+    } catch (_) {
+      target.lock();
+      throw const PasswordStoreException('所选密码库记录格式无效');
+    }
+    return _activatePasswordStore(target, generation);
   }
 
-  Future<String> _activatePasswordStore(LocalPasswordStore target) async {
+  Future<String> _activatePasswordStore(
+      LocalPasswordStore target, int generation) async {
+    if (generation != _desktopGeneration) {
+      target.lock();
+      throw const PasswordStoreException('密码库已锁定，请重试');
+    }
     final prefs = await SharedPreferences.getInstance();
     if (!await prefs.setString(
         _desktopDataDirectoryKey, target.directory.path)) {
       throw const PasswordStoreException('无法保存新的密码存储位置');
     }
+    if (generation != _desktopGeneration) {
+      target.lock();
+      throw const PasswordStoreException('密码库已锁定，请重试');
+    }
+    _localPasswordStore?.lock();
     _localPasswordStore = target;
     EventBus.instance.emitPasswordDataChanged();
     return target.directory.path;
@@ -407,8 +532,17 @@ class SecureStorageService {
 
   Future<int> countPasswords() async => (await loadPasswords()).length;
 
-  Future<void> clearPasswords() =>
-      AppUpdateService.instance.protect(() => _clearPasswords());
+  Future<void> clearPasswords() {
+    if (!_usesDesktopFileStorage)
+      return AppUpdateService.instance.protect(_clearPasswords);
+    final requestedStore = _requireLocalPasswordStore();
+    return _desktopOperation(() async {
+      if (!identical(requestedStore, _requireLocalPasswordStore())) {
+        throw const PasswordStoreException('密码库位置已更改，请重新加载后再重置');
+      }
+      await _clearPasswords();
+    });
+  }
 
   Future<void> _clearPasswords() async {
     if (_usesDesktopFileStorage) {
@@ -426,17 +560,19 @@ class SecureStorageService {
   @visibleForTesting
   Future<void> restoreLegacyMacDataForTesting(
     LocalPasswordStore store,
-    LegacyPreferencesReader reader,
-  ) async {
-    await _restoreLegacyMacData(store, reader);
+    LegacyPreferencesReader reader, {
+    required String password,
+  }) async {
+    await _restoreLegacyMacData(store, reader, password);
   }
 
   Future<void> _restoreLegacyMacData(
     LocalPasswordStore store,
     LegacyPreferencesReader reader,
+    String password,
   ) async {
     final values = await reader.readSupportedPreferences();
-    await _restoreLegacyPasswordFile(store, values);
+    await _restoreLegacyPasswordFile(store, values, password);
 
     final prefs = await SharedPreferences.getInstance();
     for (final entry in values.entries) {
@@ -450,10 +586,11 @@ class SecureStorageService {
   Future<void> _restoreLegacyPasswordFile(
     LocalPasswordStore store,
     Map<String, Object> values,
+    String password,
   ) async {
     final passwords = _legacyPasswordList(values);
     if (!await store.passwordFile.exists() && passwords != null) {
-      await store.writePasswords(passwords);
+      await store.unlock(password, initialPasswords: passwords);
       final verified = await store.readPasswords();
       if (!listEquals(verified, passwords)) {
         throw const PasswordStoreException('旧版密码数据恢复校验失败');

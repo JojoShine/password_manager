@@ -18,7 +18,9 @@ void main() {
     directory = await Directory.systemTemp.createTemp('pm_cloud_');
     first = LocalPasswordStore(directory: directory);
     second = LocalPasswordStore(directory: directory);
+    await first.unlock('test-master');
     await first.writePasswords(original);
+    await second.unlock('test-master');
     await second.readPasswords();
   });
   tearDown(() => directory.delete(recursive: true));
@@ -43,6 +45,7 @@ void main() {
   test('reloading externally changed data permits a subsequent edit', () async {
     await second.writePasswords(remote);
     expect(await first.readPasswords(), remote);
+    await first.unlock('test-master');
     await first.writePasswords(original);
     expect(await second.readPasswords(), original);
   });

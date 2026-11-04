@@ -32,6 +32,7 @@ void main() {
       });
       await tester.runAsync(() async {
         await SecureStorageService.instance.initialize();
+        await SecureStorageService.instance.unlockDesktopVault('test-master');
         await SecureStorageService.instance
             .savePasswords([jsonEncode(entry.toJson())]);
       });
@@ -46,8 +47,9 @@ void main() {
       await tester.pumpAndSettle();
       final remote = entry.copyWith(password: 'remote-new');
       await tester.runAsync(() async {
-        await LocalPasswordStore(directory: directory)
-            .writePasswords([jsonEncode(remote.toJson())]);
+        final other = LocalPasswordStore(directory: directory);
+        await other.unlock('test-master');
+        await other.writePasswords([jsonEncode(remote.toJson())]);
         EventBus.instance.emitPasswordDataChanged();
         await Future<void>.delayed(const Duration(milliseconds: 100));
       });
@@ -59,8 +61,11 @@ void main() {
         await tester.pump(const Duration(milliseconds: 200));
         if (find.textContaining('密码库已被其他设备或操作更新').evaluate().isNotEmpty) break;
       }
-      final records = await tester.runAsync(
-          () => LocalPasswordStore(directory: directory).readPasswords());
+      final records = await tester.runAsync(() async {
+        final reader = LocalPasswordStore(directory: directory);
+        await reader.unlock('test-master');
+        return reader.readPasswords();
+      });
       expect(jsonDecode(records!.single)['password'], 'remote-new');
       expect(find.text('编辑密码'), findsNothing);
       expect(find.textContaining('密码库已被其他设备或操作更新'), findsOneWidget);

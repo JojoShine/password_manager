@@ -67,6 +67,7 @@ void main() {
     setUp(() async {
       tempDirectory = await Directory.systemTemp.createTemp('pm_store_test_');
       store = LocalPasswordStore(directory: tempDirectory);
+      await store.unlock('test-master');
     });
 
     tearDown(() async {
@@ -84,27 +85,21 @@ void main() {
 
       final document = jsonDecode(await store.passwordFile.readAsString())
           as Map<String, dynamic>;
-      expect(document['version'], 1);
-      expect(document['updated_at'], isA<String>());
-      expect(document['passwords'], [
-        {'id': 1, 'title': 'Example', 'password': 'secret'},
-      ]);
+      expect(document['version'], 2);
+      expect(document['ciphertext'], isA<String>());
+      expect(document.containsKey('passwords'), isFalse);
       expect(await store.backupFile.exists(), isTrue);
       expect(await store.readPasswords(), passwords);
     });
 
-    test('recovers a corrupt primary file from the backup', () async {
-      final passwords = [
-        jsonEncode({'id': 1, 'title': 'Recovered'})
-      ];
-      await store.writePasswords(passwords);
+    test('does not overwrite corrupt primary from older backup', () async {
+      await store.writePasswords([
+        jsonEncode({'id': 1})
+      ]);
       await store.passwordFile.writeAsString('{broken');
-
-      expect(await store.readPasswords(), passwords);
-      expect(
-        jsonDecode(await store.passwordFile.readAsString()),
-        isA<Map<String, dynamic>>(),
-      );
+      await expectLater(
+          store.readPasswords(), throwsA(isA<PasswordStoreException>()));
+      expect(await store.passwordFile.readAsString(), '{broken');
     });
 
     test('throws when primary and backup are both corrupt', () async {
@@ -115,15 +110,15 @@ void main() {
       expect(store.readPasswords, throwsA(isA<PasswordStoreException>()));
     });
 
-    test('clear removes password files but leaves the directory', () async {
+    test('clear keeps an authenticated empty vault and directory', () async {
       await store.writePasswords([
         jsonEncode({'id': 1})
       ]);
 
       await store.clearPasswords();
 
-      expect(await store.passwordFile.exists(), isFalse);
-      expect(await store.backupFile.exists(), isFalse);
+      expect(await store.readPasswords(), isEmpty);
+      expect(await store.backupFile.exists(), isTrue);
       expect(await store.directory.exists(), isTrue);
     });
 
@@ -141,14 +136,10 @@ void main() {
       ];
       await store.writePasswords(passwords);
 
-      await store.copyPasswordsTo(
-        LocalPasswordStore(directory: targetDirectory),
-      );
-
-      expect(
-        await LocalPasswordStore(directory: targetDirectory).readPasswords(),
-        passwords,
-      );
+      final target = LocalPasswordStore(directory: targetDirectory);
+      await target.unlock('test-master', initialPasswords: passwords);
+      await store.copyPasswordsTo(target);
+      expect(await target.readPasswords(), passwords);
       expect(await store.readPasswords(), passwords);
     });
 
@@ -164,6 +155,7 @@ void main() {
         jsonEncode({'id': 1, 'title': 'Source'}),
       ]);
       final target = LocalPasswordStore(directory: targetDirectory);
+      await target.unlock('test-master');
       await target.writePasswords([
         jsonEncode({'id': 2, 'title': 'Existing target'}),
       ]);

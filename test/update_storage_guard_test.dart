@@ -20,6 +20,7 @@ void main() {
     SharedPreferences.setMockInitialValues(
         {'desktop_password_data_directory': '${root.path}/local'});
     await SecureStorageService.instance.initialize();
+    await SecureStorageService.instance.unlockDesktopVault('test-master');
     await SecureStorageService.instance.savePasswords([
       jsonEncode(
           PasswordEntry(title: 'Test', username: 'alice', password: 'secret')
@@ -61,6 +62,7 @@ void main() {
       () async {
     final existing =
         LocalPasswordStore(directory: Directory('${root.path}/shared'));
+    await existing.unlock('test-master');
     await existing.writePasswords([
       jsonEncode(
           PasswordEntry(title: 'Remote', username: 'bob', password: 'other')

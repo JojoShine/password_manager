@@ -16,6 +16,7 @@ void main() {
       if (await directory.exists()) await directory.delete(recursive: true);
     });
     final store = LocalPasswordStore(directory: directory);
+    await store.unlock('test-master');
     await store.writePasswords([
       jsonEncode({'id': 1})
     ]);
@@ -30,7 +31,7 @@ void main() {
     await SecureStorageService.instance.clearPasswordsForTesting(store);
 
     final prefs = await SharedPreferences.getInstance();
-    expect(await store.passwordFile.exists(), isFalse);
+    expect(await store.readPasswords(), isEmpty);
     expect(prefs.containsKey('saved_passwords'), isFalse);
     expect(prefs.getString('app_settings'), 'keep');
     expect(prefs.getString('app_title'), 'keep');
@@ -55,11 +56,13 @@ void main() {
       'mac_legacy_data_restore_checked': true,
     });
     await SecureStorageService.instance.initialize();
+    await SecureStorageService.instance.unlockDesktopVault('test-master');
     expect(await SecureStorageService.instance.loadPasswords(), records);
     final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getStringList('saved_passwords'), records);
+    expect(prefs.containsKey('saved_passwords'), isFalse);
     await SecureStorageService.instance.clearPasswords();
     await SecureStorageService.instance.initialize();
+    await SecureStorageService.instance.unlockDesktopVault('test-master');
     expect(await SecureStorageService.instance.loadPasswords(), isEmpty);
   });
 
@@ -74,6 +77,7 @@ void main() {
       LocalPasswordStore(directory: directory),
       _FakeLegacyPreferencesReader(
           {'app_settings': 'old', 'lock_timeout_minutes': 45}),
+      password: 'test-master',
     );
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getString('app_settings'), 'current');
@@ -100,6 +104,7 @@ void main() {
     await SecureStorageService.instance.restoreLegacyMacDataForTesting(
       store,
       reader,
+      password: 'test-master',
     );
 
     expect(await store.readPasswords(), legacyPasswords);

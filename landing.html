@@ -54,12 +54,12 @@
           </div>
           <figure class="product-figure">
             <div class="product-window">
-              <img src="landing-assets/app-overview.png?v=lockora-3.1.0" alt="Lockora 3.1.0 主界面，新版盾牌图标与演示密码数据">
+              <img src="landing-assets/app-overview.png?v=lockora-3.1.1" alt="Lockora 3.1.1 主界面，新版盾牌图标与演示密码数据">
               <div class="privacy-mask" aria-hidden="true"><span>演示数据已隐藏</span></div>
             </div>
             <figcaption class="product-caption mono">
               <span>一个界面，集中管理</span>
-              <span>V3.1.0</span>
+              <span>V3.1.1</span>
             </figcaption>
           </figure>
 
@@ -110,8 +110,8 @@
             <article class="trust-item">
               <span class="pixel-tile" aria-hidden="true">存</span>
               <div>
-                <h3>本地文件存储</h3>
-                <p>可在设置中更改密码库目录。3.1.0 的桌面密码库和自动备份为明文 JSON；需要备份时可选择加密 JSON 导出。</p>
+                <h3>本地加密存储</h3>
+                <p>3.1.1 起，桌面密码库和自动备份默认采用 AES-256-GCM 加密。可选择自己的 iCloud 同步目录，各设备使用同一个主密码。</p>
               </div>
             </article>
             <article class="trust-item">
@@ -228,7 +228,7 @@
             <ul class="data-list">
               <li><b class="mono">A</b><span><strong>导出备份</strong><br>在迁移电脑或卸载应用前，先导出需要保留的密码。</span></li>
               <li><b class="mono">B</b><span><strong>恢复数据</strong><br>通过导入功能选择备份文件，将记录重新写入当前密码库。</span></li>
-              <li><b class="mono">C</b><span><strong>一键重置</strong><br>清理本地密码记录与备份。执行前请确认已保存必要的数据。</span></li>
+              <li><b class="mono">C</b><span><strong>一键重置</strong><br>清空密码记录与备份内容，保留原主密码保护的空加密库。执行前请先备份。</span></li>
             </ul>
           </article>
         </div>
@@ -244,6 +244,13 @@
         </div>
         <div class="faq-list reveal">
           <details open>
+            <summary>3.1.1 · 2026-11-05</summary>
+            <p>macOS 和 Windows 密码库默认使用 AES-256-GCM 认证加密，主文件、自动备份与写入临时文件均保存为密文。主密码通过带随机盐的 PBKDF2-HMAC-SHA256（600,000 次）派生密钥，同一个同步库在各设备使用同一个主密码。</p>
+            <p>3.1.0 用户可进入“设置 → 版本与更新”检查并安装；3.0.0 用户需手动下载安装。所有同步设备应先退出旧版并升级至 3.1.1，再用原主密码解锁迁移，旧版不能继续写入新格式。</p>
+            <p>历史导出、旧目录副本与云盘历史版本不会自动清理。普通 JSON、CSV 导出仍为明文；本次加密适用于桌面版，不覆盖 Web 和移动端的原有存储实现。</p>
+            <p><a href="https://github.com/JojoShine/password_manager/releases/tag/lockora-v3.1.1" target="_blank" rel="noopener noreferrer">查看完整发布说明与下载文件 →</a></p>
+          </details>
+          <details>
             <summary>3.1.0 · 2026-11-04</summary>
             <p>应用和浏览器扩展统一更名为 Lockora，更新图标。支持更改密码库目录，可选择 iCloud 等自己的同步目录；改进重复保存提示、扩展连接恢复与底部显示。</p>
             <p>macOS 和 Windows 新增“设置 → 版本与更新”，可检查版本并由用户确认安装，更新包会验证签名。正在编辑、保存或导入导出时会阻止更新退出。</p>
@@ -262,12 +269,12 @@
           <p>下载适合系统的安装包，按照下方说明完成安装。</p>
         </div>
         <div class="download-options reveal">
-          <a class="download-card" href="https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/lockora/releases/3.1.0/Lockora-3.1.0-macos.zip" download>
+          <a class="download-card" href="https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/lockora/releases/3.1.1/Lockora-3.1.1-macos.zip" download>
             <span class="os-icon mono" aria-hidden="true">MAC</span>
             <span><strong>下载 macOS 版</strong><small>ZIP 压缩包</small></span>
             <span class="pixel-arrow" aria-hidden="true">↓</span>
           </a>
-          <a class="download-card" href="https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/lockora/releases/3.1.0/Lockora-3.1.0-windows-setup.exe" download>
+          <a class="download-card" href="https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/lockora/releases/3.1.1/Lockora-3.1.1-windows-setup.exe" download>
             <span class="os-icon mono" aria-hidden="true">WIN</span>
             <span><strong>下载 Windows 版</strong><small>EXE 安装包</small></span>
             <span class="pixel-arrow" aria-hidden="true">↓</span>
@@ -332,7 +339,7 @@
         <div class="faq-list reveal">
           <details>
             <summary>密码会同步到云端吗？</summary>
-            <p>不会。应用以本地管理为核心，不要求注册账号，也不会主动把密码上传到云端。</p>
+            <p>应用不会把密码库上传到开发者服务器。你可以在设置中选择自己的 iCloud Drive 等同步目录，由对应云盘服务同步加密文件；所有设备使用同一个主密码。</p>
           </details>
           <details>
             <summary>忘记主密码后可以找回吗？</summary>
