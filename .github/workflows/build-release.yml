@@ -88,7 +88,12 @@ jobs:
       - run: flutter pub get
       - run: python tools/release.py configure
       - name: Build desktop application
-        run: flutter build ${{ matrix.platform }} --release --dart-define-from-file=build/updates.json
+        shell: bash
+        run: |
+          if ! flutter build ${{ matrix.platform }} --release --dart-define-from-file=build/updates.json --verbose > build/desktop-build.log 2>&1; then
+            tail -n 200 build/desktop-build.log
+            exit 1
+          fi
       - name: Native migration and installer authorization tests
         if: matrix.platform == 'macos'
         shell: bash
