@@ -6,9 +6,9 @@
 
 **一款像素风格、无需账户、数据保存在本机的桌面密码管理器。**
 
-[macOS 下载](https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/lockora/releases/3.1.1/Lockora-3.1.1-macos.zip) · [Windows 下载](https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/lockora/releases/3.1.1/Lockora-3.1.1-windows-setup.exe) · [问题反馈](https://github.com/JojoShine/password_manager/issues) · [TBTparent](https://tbtparent.me)
+[macOS 下载](https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/lockora/releases/3.1.2/Lockora-3.1.2-macos.zip) · [Windows 下载](https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/lockora/releases/3.1.2/Lockora-3.1.2-windows-setup.exe) · [问题反馈](https://github.com/JojoShine/password_manager/issues) · [TBTparent](https://tbtparent.me)
 
-![Version](https://img.shields.io/badge/version-3.1.1-26231f)
+![Version](https://img.shields.io/badge/version-3.1.2-26231f)
 ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-2f67c7)
 ![License](https://img.shields.io/badge/license-MIT-d9aa13)
 
@@ -27,17 +27,17 @@
 
 ## 下载与安装
 
-当前发布版本为 `3.1.1`，提供 macOS 和 Windows 桌面版。
+当前发布版本为 `3.1.2`，提供 macOS 和 Windows 桌面版。
 
 ### Windows
 
-1. 下载 [Lockora-3.1.1-windows-setup.exe](https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/lockora/releases/3.1.1/Lockora-3.1.1-windows-setup.exe)。
+1. 下载 [Lockora-3.1.2-windows-setup.exe](https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/lockora/releases/3.1.2/Lockora-3.1.2-windows-setup.exe)。
 2. 退出旧版应用，运行安装程序，按提示完成当前用户安装。
 3. 从开始菜单或桌面快捷方式启动 Lockora。安装和卸载不会删除密码库。
 
 ### macOS
 
-1. 下载 [Lockora-3.1.1-macos.zip](https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/lockora/releases/3.1.1/Lockora-3.1.1-macos.zip)。
+1. 下载 [Lockora-3.1.2-macos.zip](https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/lockora/releases/3.1.2/Lockora-3.1.2-macos.zip)。
 2. 退出旧版应用，解压后将 `Lockora.app` 拖入本机“应用程序”目录。
 3. 从“应用程序”目录启动 Lockora，确认密码库和设置正常后，再移除旧 `PasswordManager.app`。
 

@@ -5,6 +5,13 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 项目遵循 [语义化版本](https://semver.org/lang/zh-CN/) 规范。
 
+## [3.1.2] - 2026-11-07
+
+### 优化 (Performance)
+- macOS 使用 CommonCrypto、Windows 使用 CNG 原生 PBKDF2，加速主密码解锁；计算仍在后台执行。
+- 保持 PBKDF2-HMAC-SHA256 600,000 次迭代和 AES-256-GCM 密码库格式，旧库与原主密码直接兼容，无需重新迁移。
+- 增加双平台原生派生结果与耗时回归验证，覆盖中文、Emoji、空字符和长密码。
+
 ## [3.1.1] - 2026-11-05
 
 ### 安全 (Security)
