@@ -4,6 +4,8 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:pointycastle/export.dart';
 
+import 'native_pbkdf2_stub.dart' if (dart.library.io) 'native_pbkdf2.dart';
+
 /// Desktop vault format. Header fields are authenticated, never secret.
 class VaultCrypto {
   static const iterations = 600000;
@@ -17,9 +19,16 @@ class VaultCrypto {
       compute(_derive, (password, salt));
 
   static Uint8List _derive((String, Uint8List) input) {
-    final kdf = PBKDF2KeyDerivator(HMac(SHA256Digest(), 64))
-      ..init(Pbkdf2Parameters(input.$2, iterations, 32));
-    return kdf.process(Uint8List.fromList(utf8.encode(input.$1)));
+    final password = Uint8List.fromList(utf8.encode(input.$1));
+    try {
+      final native = deriveNativePbkdf2(password, input.$2, iterations);
+      if (native != null) return native;
+      final kdf = PBKDF2KeyDerivator(HMac(SHA256Digest(), 64))
+        ..init(Pbkdf2Parameters(input.$2, iterations, 32));
+      return kdf.process(password);
+    } finally {
+      password.fillRange(0, password.length, 0);
+    }
   }
 
   static Map<String, dynamic> _header(Uint8List salt) => {

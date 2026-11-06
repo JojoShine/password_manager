@@ -244,6 +244,13 @@
         </div>
         <div class="faq-list reveal">
           <details open>
+            <summary>3.1.2 · 2026-11-07</summary>
+            <p>优化加密密码库的主密码解锁速度：macOS 和 Windows 改用系统原生实现执行密钥派生，并继续在后台计算。</p>
+            <p>加密强度和密码库格式保持不变，继续使用 PBKDF2-HMAC-SHA256（600,000 次）与 AES-256-GCM。原主密码和 3.1.1 密码库直接兼容，不需要重新迁移。</p>
+            <p>3.1.0、3.1.1 用户可在“设置 → 版本与更新”检查并安装。若从未加密旧版升级，仍需先让所有同步设备退出旧版并升级，再解锁迁移。</p>
+            <p><a href="https://github.com/JojoShine/password_manager/releases/tag/lockora-v3.1.2" target="_blank" rel="noopener noreferrer">查看完整发布说明与下载文件 →</a></p>
+          </details>
+          <details>
             <summary>3.1.1 · 2026-11-05</summary>
             <p>macOS 和 Windows 密码库默认使用 AES-256-GCM 认证加密，主文件、自动备份与写入临时文件均保存为密文。主密码通过带随机盐的 PBKDF2-HMAC-SHA256（600,000 次）派生密钥，同一个同步库在各设备使用同一个主密码。</p>
             <p>3.1.0 用户可进入“设置 → 版本与更新”检查并安装；3.0.0 用户需手动下载安装。所有同步设备应先退出旧版并升级至 3.1.1，再用原主密码解锁迁移，旧版不能继续写入新格式。</p>
@@ -269,12 +276,12 @@
           <p>下载适合系统的安装包，按照下方说明完成安装。</p>
         </div>
         <div class="download-options reveal">
-          <a class="download-card" href="https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/lockora/releases/3.1.1/Lockora-3.1.1-macos.zip" download>
+          <a class="download-card" href="https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/lockora/releases/3.1.2/Lockora-3.1.2-macos.zip" download>
             <span class="os-icon mono" aria-hidden="true">MAC</span>
             <span><strong>下载 macOS 版</strong><small>ZIP 压缩包</small></span>
             <span class="pixel-arrow" aria-hidden="true">↓</span>
           </a>
-          <a class="download-card" href="https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/lockora/releases/3.1.1/Lockora-3.1.1-windows-setup.exe" download>
+          <a class="download-card" href="https://tbtparent-me.oss-cn-hangzhou.aliyuncs.com/Download/lockora/releases/3.1.2/Lockora-3.1.2-windows-setup.exe" download>
             <span class="os-icon mono" aria-hidden="true">WIN</span>
             <span><strong>下载 Windows 版</strong><small>EXE 安装包</small></span>
             <span class="pixel-arrow" aria-hidden="true">↓</span>

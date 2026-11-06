@@ -138,7 +138,7 @@ void main() {
     PackageInfo.setMockInitialValues(
       appName: '密码管理器',
       packageName: 'me.tbtparent.lockora',
-      version: '3.1.1',
+      version: '3.1.2',
       buildNumber: '1',
       buildSignature: '',
     );
@@ -149,16 +149,16 @@ void main() {
 
     await tester.pumpWidget(const MaterialApp(home: HomePage()));
     await tester.pump();
-    await tester.tap(find.text('v3.1.1'));
+    await tester.tap(find.text('v3.1.2'));
     await tester.pumpAndSettle();
 
     expect(find.byType(PixelDialogHeader), findsOneWidget);
     expect(find.byType(Table), findsOneWidget);
   });
 
-  test('package version is consistently 3.1.1', () {
+  test('package version is consistently 3.1.2', () {
     final pubspec = File('pubspec.yaml').readAsStringSync();
-    expect(pubspec, contains('version: 3.1.1+'));
+    expect(pubspec, contains('version: 3.1.2+'));
   });
 
   testWidgets('theme toggle uses a square solid pixel frame', (tester) async {
